@@ -1,0 +1,8 @@
+{
+  "name": "crm-pixelup",
+  "version": "1.0.0",
+  "description": "Projeto inicial para teste do CRM PixelUp na Vercel",
+  "scripts": {
+    "start": "echo 'Abra index.html no navegador'"
+  }
+}
