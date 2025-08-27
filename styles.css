@@ -1,0 +1,33 @@
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
+.topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
+.topbar h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.5px}
+.topbar h1 span{color:#2bb8ff;text-shadow:0 0 12px rgba(43,184,255,.6)}
+.actions{display:flex;gap:10px;align-items:center}
+.container{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:18px}
+.card{background:#0d1b29;border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+h2{margin:0 0 12px 0;font-size:18px}
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.form-grid textarea{grid-column:1/-1;min-height:80px}
+.form-grid button{grid-column:1/-1}
+input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
+input::placeholder,textarea::placeholder{color:#7fa8c3}
+.btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+.btn.secondary{background:#0f2132;border-color:#17324a;color:#cde9ff}
+.btn.github{background:#0f2132;color:#8bd4ff;border-color:#17324a;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.list-header{display:flex;gap:12px;justify-content:space-between;align-items:center;margin-bottom:10px}
+.filters{display:flex;gap:10px}
+.table-wrap{overflow:auto;border:1px solid #102437;border-radius:12px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap}
+th{background:#0b1520;position:sticky;top:0}
+tr:hover{background:#0f1d2b}
+.actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
+.actions-cell button.danger{border-color:#ff4d4d;color:#ff7878}
+.footer{padding:20px;text-align:center;color:#86c8ea;opacity:.8}
+@media (max-width:800px){.form-grid{grid-template-columns:1fr}.filters{flex-direction:column;align-items:stretch}}
+.tag{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #17324a;background:#0f2132;color:#bfe6ff}
+.tag-ganho{border-color:#27ae60;color:#8ff0b1}
+.tag-perdido{border-color:#e74c3c;color:#ffaaaa}
+.tag-proposta{border-color:#e2b93b;color:#ffe89b}
+.tag-qualificado{border-color:#2bb8ff;color:#9fe0ff}
+.tag-novo{border-color:#8e44ad;color:#dcb8ff}

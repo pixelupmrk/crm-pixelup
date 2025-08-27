@@ -1,15 +1,86 @@
-
-<h1>🚀 CRM PixelUp — v2</h1>
-<p>Deploy automático funcionando pela Vercel! 🎉</p>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CRM PixelUp</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CRM PixelUp — Starter</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%2300A3FF'/><text x='50' y='60' text-anchor='middle' font-size='40' fill='white'>P</text></svg>">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body style="font-family: Arial, sans-serif; text-align:center; margin-top: 50px;">
-  <h1>🚀 CRM PixelUp</h1>
-  <p>Parabéns! Seu primeiro deploy na Vercel está funcionando.</p>
+<body>
+  <header class="topbar">
+    <h1>CRM <span>PixelUp</span></h1>
+    <div class="actions">
+      <button id="exportCsvBtn" class="btn">Exportar CSV</button>
+      <label class="btn secondary">
+        Importar JSON
+        <input id="importJsonInput" type="file" accept="application/json" hidden>
+      </label>
+      <a class="btn github" href="https://github.com/" target="_blank" rel="noreferrer">GitHub</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Novo Lead</h2>
+      <form id="leadForm" class="form-grid">
+        <input id="name" placeholder="Nome" required />
+        <input id="email" type="email" placeholder="E-mail" />
+        <input id="phone" placeholder="WhatsApp" />
+        <select id="stage">
+          <option value="novo">Novo</option>
+          <option value="qualificado">Qualificado</option>
+          <option value="proposta">Proposta</option>
+          <option value="ganho">Ganho</option>
+          <option value="perdido">Perdido</option>
+        </select>
+        <input id="source" placeholder="Origem (Instagram, Indicação...)" />
+        <textarea id="notes" placeholder="Notas"></textarea>
+        <button class="btn" type="submit">Salvar</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="list-header">
+        <h2>Leads</h2>
+        <div class="filters">
+          <input id="search" placeholder="Buscar por nome, e-mail, telefone..." />
+          <select id="filterStage">
+            <option value="">Todos os estágios</option>
+            <option value="novo">Novo</option>
+            <option value="qualificado">Qualificado</option>
+            <option value="proposta">Proposta</option>
+            <option value="ganho">Ganho</option>
+            <option value="perdido">Perdido</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="leadsTable">
+          <thead>
+            <tr>
+              <th data-sort="name">Nome</th>
+              <th data-sort="email">E-mail</th>
+              <th data-sort="phone">WhatsApp</th>
+              <th data-sort="stage">Estágio</th>
+              <th data-sort="source">Origem</th>
+              <th data-sort="updatedAt">Atualizado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Feito com 💙 pela PixelUp — Demo localStorage (sem backend)</p>
+  </footer>
+
+  <script src="app.js"></script>
 </body>
 </html>
