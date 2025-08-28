@@ -44,14 +44,11 @@
     a.quick{color:#9fd9ff;text-decoration:underline}
     a.quick:hover{text-decoration:none;opacity:.9}
 
-    /* tags */
-    .tags{display:flex;gap:6px;flex-wrap:wrap}
-    .tag{padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid #17324a;background:#0b1a27;color:#cde9ff}
-    .tag.v1{background:#12355b}
-    .tag.v2{background:#402e5a}
-    .tag.v3{background:#3b2f1a}
-    .tag.v4{background:#1e3a2a}
-    .tag.v5{background:#4a2222}
+    /* badge qualificação */
+    .qual-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #17324a;background:#0b1a27;color:#cde9ff}
+    .q-quente{background:#3b0d0d;color:#ffd1d1;border-color:#5c1a1a}
+    .q-morno{background:#3b2a0d;color:#ffe6b0;border-color:#6b4a12}
+    .q-frio{ background:#0d264a;color:#d5e6ff;border-color:#123b70}
 
     /* === KANBAN === */
     .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
@@ -72,7 +69,7 @@
     .kcard .name{font-weight:600;margin-bottom:2px}
     .kcard .meta{opacity:.8}
 
-    /* Cores por coluna */
+    /* Cores por coluna do funil */
     .kcol[data-stage="novo"]      {border-color:#3b82f6;}
     .kcol[data-stage="qualificado"]{border-color:#a855f7;}
     .kcol[data-stage="proposta"]  {border-color:#f59e0b;}
@@ -85,7 +82,7 @@
     .kcol[data-stage="vendido"] .khead .title{color:#34d399}
     .kcol[data-stage="perdido"] .khead .title{color:#f87171}
 
-    /* Ícone WhatsApp no card */
+    /* WhatsApp no card */
     .wa-icon{
       position:absolute;top:6px;right:6px;z-index:50;
       display:inline-flex;align-items:center;justify-content:center;
@@ -106,7 +103,7 @@
     .modal-header h3{margin:0;font-size:18px}
     .modal-actions{display:flex;gap:8px}
     .modal-close{background:transparent;border:1px solid #17324a;color:#cde9ff;border-radius:10px;padding:6px 10px;cursor:pointer}
-    .dl{display:grid;grid-template-columns:120px 1fr;gap:8px;margin-top:8px}
+    .dl{display:grid;grid-template-columns:140px 1fr;gap:8px;margin-top:8px}
     .dl b{color:#9fd9ff}
     .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; opacity:.9}
     .edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -137,7 +134,12 @@
         <input id="owner" placeholder="Atendente (quem atende)" />
         <input id="source" placeholder="Origem" />
         <input id="date" type="date" />
-        <input id="tags" placeholder="Tags (sep. por vírgula: vip, urgente, ...)" />
+        <select id="qualif">
+          <option value="">Qualificação</option>
+          <option value="quente">Lead Quente</option>
+          <option value="morno">Lead Morno</option>
+          <option value="frio">Lead Frio</option>
+        </select>
         <textarea id="notes" placeholder="Notas"></textarea>
         <button class="btn" type="submit">Salvar</button>
       </form>
@@ -152,8 +154,11 @@
           <select id="filterOwner">
             <option value="">Todos atendentes</option>
           </select>
-          <select id="filterTag">
-            <option value="">Todas as tags</option>
+          <select id="filterQualif">
+            <option value="">Todas qualificações</option>
+            <option value="quente">Lead Quente</option>
+            <option value="morno">Lead Morno</option>
+            <option value="frio">Lead Frio</option>
           </select>
           <div class="filter-dates">
             <span>De</span><input id="filterStart" type="date">
@@ -175,7 +180,7 @@
           <thead>
             <tr>
               <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Atendente</th>
-              <th>Estágio</th><th>Origem</th><th>Data</th><th>Tags</th><th>Atualizado</th><th>Ações</th>
+              <th>Estágio</th><th>Origem</th><th>Data</th><th>Qualificação</th><th>Atualizado</th><th>Ações</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -212,29 +217,16 @@
   document.addEventListener("DOMContentLoaded", function(){
     const LS_KEY="pixelup_crm_leads_v1";
     const WA_TPL_KEY="pixelup_crm_wa_template_v1";
-    let waTemplate = localStorage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} e gostaria de ajudar. Podemos falar?";
+    let waTemplate = localStorage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}) e gostaria de ajudar. Podemos falar?";
     let leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
     const persist=()=>localStorage.setItem(LS_KEY, JSON.stringify(leads));
 
-    // DOM
-    const form=document.getElementById("leadForm");
-    const tbody=document.querySelector("#leadsTable tbody");
-    const search=document.getElementById("search");
-    const fOwner=document.getElementById("filterOwner");
-    const fTag=document.getElementById("filterTag");
-    const fStart=document.getElementById("filterStart");
-    const fEnd=document.getElementById("filterEnd");
-    const exportBtn=document.getElementById("exportCsv");
-    const btnTemplate=document.getElementById("btnTemplate");
-    const tabList=document.getElementById("tabList");
-    const tabKanban=document.getElementById("tabKanban");
-    const tableWrap=document.getElementById("tableWrap");
-    const kanbanEl=document.getElementById("kanban");
-
+    // helpers
     const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
-    const toTags = (txt)=> (String(txt||"").split(",").map(t=>t.trim()).filter(Boolean));
+    const qualName = q => q==="quente"?"Lead Quente": q==="morno"?"Lead Morno": q==="frio"?"Lead Frio":"";
+    const qualClass = q => q?("q-"+q):"";
 
     function buildMessage(tpl, lead){
       const map = {
@@ -244,12 +236,28 @@
         "{{atendente}}": lead.owner||"",
         "{{origem}}": lead.source||"",
         "{{estagio}}": lead.stage||"",
-        "{{data}}": lead.date||""
+        "{{data}}": lead.date||"",
+        "{{qualificacao}}": qualName(lead.qualif)||""
       };
       let out = tpl;
       for(const k in map){ out = out.split(k).join(map[k]); }
       return out;
     }
+
+    // DOM
+    const form=document.getElementById("leadForm");
+    const tbody=document.querySelector("#leadsTable tbody");
+    const search=document.getElementById("search");
+    const fOwner=document.getElementById("filterOwner");
+    const fQualif=document.getElementById("filterQualif");
+    const fStart=document.getElementById("filterStart");
+    const fEnd=document.getElementById("filterEnd");
+    const exportBtn=document.getElementById("exportCsv");
+    const btnTemplate=document.getElementById("btnTemplate");
+    const tabList=document.getElementById("tabList");
+    const tabKanban=document.getElementById("tabKanban");
+    const tableWrap=document.getElementById("tableWrap");
+    const kanbanEl=document.getElementById("kanban");
 
     /* ===== MODAL ===== */
     function showLeadDetails(lead){
@@ -277,7 +285,7 @@
             <b>Estágio</b> <div>${esc(lead.stage)}</div>
             <b>Origem</b> <div>${esc(lead.source||"")}</div>
             <b>Data</b> <div>${esc(lead.date||"")}</div>
-            <b>Tags</b> <div>${(lead.tags||[]).map((t,i)=>`<span class="tag v${(i%5)+1}">${esc(t)}</span>`).join(" ")||"-"}</div>
+            <b>Qualificação</b> <div><span class="qual-badge ${qualClass(lead.qualif)}">${esc(qualName(lead.qualif))||"-"}</span></div>
             <b>Criado</b> <div>${new Date(lead.createdAt).toLocaleString()}</div>
             <b>Atualizado</b> <div>${new Date(lead.updatedAt).toLocaleString()}</div>
             <b>Notas</b> <div style="white-space:pre-wrap">${esc(lead.notes||"-")}</div>
@@ -295,7 +303,7 @@
               <button class="btn" id="openWa">Abrir no WhatsApp</button>
             </div>
             <textarea id="waText" placeholder="Mensagem que será enviada no WhatsApp"></textarea>
-            <small>Placeholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}</small>
+            <small>Placeholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}</small>
           </div>
 
           <form id="editForm" class="edit-grid" style="display:none;margin-top:8px">
@@ -312,7 +320,12 @@
             </select>
             <input  id="e_source" placeholder="Origem" />
             <input  id="e_date"   type="date" />
-            <input  id="e_tags"   placeholder="Tags (vírgula)" />
+            <select id="e_qualif">
+              <option value="">Qualificação</option>
+              <option value="quente">Lead Quente</option>
+              <option value="morno">Lead Morno</option>
+              <option value="frio">Lead Frio</option>
+            </select>
             <textarea id="e_notes" placeholder="Notas"></textarea>
             <div style="grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end">
               <button type="button" class="btn ghost" id="cancelEdit">Cancelar</button>
@@ -328,14 +341,12 @@
       const openWa = modal.querySelector("#openWa");
 
       const quicks = {
-        oi: "Olá {{nome}}, tudo bem? Aqui é {{atendente}} da PixelUp. Recebemos seu contato via {{origem}} e estou à disposição para te ajudar 🙂",
-        proposta: "Oi {{nome}}! Acabei de enviar a proposta no seu e-mail {{email}}. Se preferir, posso resumir por aqui!",
-        follow: "Oi {{nome}}, passando para saber se conseguiu ver nossa proposta. Posso te ajudar com alguma dúvida?"
+        oi: "Olá {{nome}}, tudo bem? Aqui é {{atendente}} da PixelUp ({{qualificacao}}). Recebemos seu contato via {{origem}} 🙂",
+        proposta: "Oi {{nome}}! Acabei de enviar a proposta no seu e-mail {{email}} ({{qualificacao}}). Se preferir, posso resumir por aqui!",
+        follow: "Oi {{nome}}, passando para saber se conseguiu ver nossa proposta. Continuo à disposição! ({{qualificacao}})"
       };
 
-      function fillDefault(){
-        waText.value = buildMessage(waTemplate, lead);
-      }
+      function fillDefault(){ waText.value = buildMessage(waTemplate, lead); }
       fillDefault();
 
       preset.addEventListener("change", ()=>{
@@ -368,19 +379,11 @@
         modal.querySelector("#e_stage").value = lead.stage||"novo";
         modal.querySelector("#e_source").value= lead.source||"";
         modal.querySelector("#e_date").value  = lead.date||"";
-        modal.querySelector("#e_tags").value  = (lead.tags||[]).join(", ");
+        modal.querySelector("#e_qualif").value= lead.qualif||"";
         modal.querySelector("#e_notes").value = lead.notes||"";
       };
-      editBtn.addEventListener("click", ()=>{
-        fillEdit();
-        details.style.display="none";
-        formE.style.display="grid";
-      });
-      modal.querySelector("#cancelEdit").addEventListener("click", ()=>{
-        formE.reset();
-        formE.style.display="none";
-        details.style.display="grid";
-      });
+      editBtn.addEventListener("click", ()=>{ fillEdit(); details.style.display="none"; formE.style.display="grid"; });
+      modal.querySelector("#cancelEdit").addEventListener("click", ()=>{ formE.reset(); formE.style.display="none"; details.style.display="grid"; });
       formE.addEventListener("submit",(ev)=>{
         ev.preventDefault();
         lead.name   = modal.querySelector("#e_name").value.trim();
@@ -390,7 +393,7 @@
         lead.stage  = modal.querySelector("#e_stage").value;
         lead.source = modal.querySelector("#e_source").value.trim();
         lead.date   = modal.querySelector("#e_date").value;
-        lead.tags   = toTags(modal.querySelector("#e_tags").value);
+        lead.qualif = modal.querySelector("#e_qualif").value;
         lead.notes  = modal.querySelector("#e_notes").value.trim();
         lead.updatedAt = Date.now();
         persist(); close(); renderAll();
@@ -404,15 +407,15 @@
       tbody.innerHTML="";
       const q=(search?.value||"").toLowerCase();
       const ownerFilter=fOwner?.value||"";
-      const tagFilter=fTag?.value||"";
+      const qualFilter=fQualif?.value||"";
       const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
 
       const filtered = leads.filter(l=>{
-        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+(l.tags||[]).join(" ")).toLowerCase();
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();
         const d=l.date?parseDateTs(l.date):l.updatedAt;
         if(q && !txt.includes(q)) return false;
         if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
-        if(tagFilter && !(l.tags||[]).includes(tagFilter)) return false;
+        if(qualFilter && (l.qualif||"")!==qualFilter) return false;
         if(sTs && d<sTs) return false;
         if(eTs && d>eTs) return false;
         return true;
@@ -426,7 +429,6 @@
         const mailCell = l.email ? `<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${esc(l.email)}</a>` : "";
         const waDigits = digits(l.phone||"");
         const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(l.phone)}</a>` : esc(l.phone||"");
-        const tagsHtml = (l.tags||[]).map((t,i)=>`<span class="tag v${(i%5)+1}">${esc(t)}</span>`).join(" ");
 
         tr.innerHTML=`<td>${esc(l.name)}</td>
                       <td>${mailCell}</td>
@@ -435,7 +437,7 @@
                       <td>${esc(l.stage)}</td>
                       <td>${esc(l.source||"")}</td>
                       <td>${esc(l.date||"")}</td>
-                      <td><div class="tags">${tagsHtml}</div></td>
+                      <td><span class="qual-badge ${qualClass(l.qualif)}">${esc(qualName(l.qualif))||""}</span></td>
                       <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
         const td=document.createElement("td"); td.className="actions-cell";
         const del=document.createElement("button"); del.textContent="Excluir";
@@ -445,10 +447,8 @@
       }
 
       populateOwnerFilter();
-      populateTagFilter();
     }
 
-    // Clique na linha abre modal
     document.querySelector("#leadsTable tbody").addEventListener("click", (e)=>{
       if(e.target.closest(".actions-cell")) return;
       const tr=e.target.closest("tr");
@@ -463,15 +463,8 @@
       const options = ['<option value="">Todos atendentes</option>', ...owners.map(o=>`<option ${o===selected?'selected':''} value="${esc(o)}">${esc(o)}</option>`)];
       fOwner.innerHTML = options.join('');
     }
-    function populateTagFilter(){
-      const selected = fTag.value;
-      const tags = [...new Set(leads.flatMap(l=>l.tags||[]))].sort((a,b)=>a.localeCompare(b));
-      const options = ['<option value="">Todas as tags</option>', ...tags.map(t=>`<option ${t===selected?'selected':''} value="${esc(t)}">${esc(t)}</option>`)];
-      fTag.innerHTML = options.join('');
-    }
-
     fOwner.addEventListener("change", renderList);
-    fTag.addEventListener("change", renderList);
+    fQualif.addEventListener("change", renderList);
 
     /* ===== KANBAN ===== */
     const STAGES=["novo","qualificado","proposta","vendido","perdido"];
@@ -497,15 +490,14 @@
             metaOwner.className="meta"; metaOwner.textContent="Atendente: "+l.owner;
             card.appendChild(metaOwner);
           }
-          if((l.tags||[]).length){
-            const tagsBox=document.createElement("div"); tagsBox.className="tags"; 
-            (l.tags||[]).forEach((t,i)=>{
-              const s=document.createElement("span"); s.className="tag v"+(((i%5)+1)); s.textContent=t; tagsBox.appendChild(s);
-            });
-            card.appendChild(tagsBox);
+          if(l.qualif){
+            const qb=document.createElement("span");
+            qb.className="qual-badge "+qualClass(l.qualif);
+            qb.textContent=qualName(l.qualif);
+            card.appendChild(qb);
           }
 
-          // WhatsApp ícone
+          // WhatsApp ícone com mensagem padrão
           const wa = digits(l.phone||"");
           if(wa){
             const a=document.createElement("a");
@@ -556,19 +548,19 @@
       URL.revokeObjectURL(url);
     }
     exportBtn.addEventListener("click", ()=>{
-      const headers = ["id","nome","email","whatsapp","atendente","estagio","origem","data","tags","notas","criado_em","atualizado_em"];
+      const headers = ["id","nome","email","whatsapp","atendente","estagio","origem","data","qualificacao","notas","criado_em","atualizado_em"];
       const rows = [headers];
       const ownerFilter=fOwner?.value||"";
-      const tagFilter=fTag?.value||"";
+      const qualFilter=fQualif?.value||"";
       const q=(search?.value||"").toLowerCase();
       const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
 
       const filtered = leads.filter(l=>{
-        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+(l.tags||[]).join(" ")).toLowerCase();
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();
         const d=l.date?parseDateTs(l.date):l.updatedAt;
         if(q && !txt.includes(q)) return false;
         if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
-        if(tagFilter && !(l.tags||[]).includes(tagFilter)) return false;
+        if(qualFilter && (l.qualif||"")!==qualFilter) return false;
         if(sTs && d<sTs) return false;
         if(eTs && d>eTs) return false;
         return true;
@@ -577,8 +569,8 @@
       for(const l of filtered){
         rows.push([
           l.id, l.name||"", l.email||"", l.phone||"", l.owner||"",
-          l.stage||"", l.source||"", l.date||"", (l.tags||[]).join("|"), l.notes||"",
-          new Date(l.createdAt).toISOString(), new Date(l.updatedAt).toISOString()
+          l.stage||"", l.source||"", l.date||"", qualName(l.qualif)||"",
+          l.notes||"", new Date(l.createdAt).toISOString(), new Date(l.updatedAt).toISOString()
         ]);
       }
       const csv = rows.map(toCsvRow).join("\n");
@@ -597,7 +589,7 @@
           owner:document.getElementById("owner").value.trim(),
           source:document.getElementById("source").value.trim(),
           date:document.getElementById("date").value,
-          tags:toTags(document.getElementById("tags").value),
+          qualif:document.getElementById("qualif").value,
           notes:document.getElementById("notes").value.trim(),
           createdAt:Date.now(),updatedAt:Date.now()};
         if(!lead.name){alert("Informe o nome");return;}
@@ -605,10 +597,10 @@
       });
     }
 
-    /* ===== BOTÃO TEMPLATE PADRÃO ===== */
+    /* ===== TEMPLATE PADRÃO ===== */
     btnTemplate.addEventListener("click", ()=>{
       const novo = prompt(
-        "Edite o texto padrão do WhatsApp.\nVocê pode usar: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}",
+        "Edite o texto padrão do WhatsApp.\nVocê pode usar: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}",
         waTemplate
       );
       if(novo!=null){
@@ -622,7 +614,7 @@
     tabList.onclick=()=>{tabList.classList.add("active");tabKanban.classList.remove("active");tableWrap.style.display="block";kanbanEl.classList.remove("visible");};
     tabKanban.onclick=()=>{tabKanban.classList.add("active");tabList.classList.remove("active");tableWrap.style.display="none";kanbanEl.classList.add("visible");renderKanban();};
 
-    [search,fOwner,fTag,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",renderList));
+    [search,fOwner,fQualif,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",renderList));
     renderAll();
   });
   </script>
