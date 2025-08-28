@@ -31,8 +31,7 @@
     td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:normal;word-break:break-word}
     tr:hover{background:#0f1d2b}
 
-    .actions-cell a,.actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer;text-decoration:none;display:inline-block}
-    .actions-cell .danger{border-color:#ff4d4d;color:#ff7878}
+    .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
 
     /* === KANBAN === */
     .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
@@ -135,133 +134,130 @@
     </section>
   </main>
 
+  <!-- Script DEFER para evitar rodar antes do DOM -->
   <script>
-  (function(){
+  document.addEventListener("DOMContentLoaded", function(){
     // ===== Utils =====
-    function esc(s){ return String(s||"").replace(/[&<>\"']/g,function(m){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]; }); }
+    function esc(s){ return String(s||"").replace(/[&<>\"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
     function parseDateTs(str,endOfDay){
       if(!str) return null;
-      var y,m,d;
-      if(str.indexOf("-")>-1){ var p=str.split("-"); if(p.length!==3) return null; y=+p[0]; m=+p[1]-1; d=+p[2]; }
-      else if(str.indexOf("/")>-1){ var p2=str.split("/"); if(p2.length!==3) return null; d=+p2[0]; m=+p2[1]-1; y=+p2[2]; }
+      let y,m,d;
+      if(str.includes("-")){ const p=str.split("-"); if(p.length!==3) return null; y=+p[0]; m=+p[1]-1; d=+p[2]; }
+      else if(str.includes("/")){ const p=str.split("/"); if(p.length!==3) return null; d=+p[0]; m=+p[1]-1; y=+p[2]; }
       else return null;
       return new Date(y,m,d, endOfDay?23:0, endOfDay?59:0, endOfDay?59:0, endOfDay?999:0).getTime();
     }
 
     // ===== Estado =====
-    var LS_KEY="pixelup_crm_leads_v1";
-    var leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
+    const LS_KEY="pixelup_crm_leads_v1";
+    let leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
+    const persist=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(leads)); }catch(e){} };
 
-    function persist(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(leads)); }catch(e){} }
+    // ===== Elementos (sempre verificados) =====
+    const form=document.getElementById("leadForm");
+    const tbody=document.querySelector("#leadsTable tbody");
+    const search=document.getElementById("search");
+    const fStart=document.getElementById("filterStart");
+    const fEnd=document.getElementById("filterEnd");
+    const tabList=document.getElementById("tabList");
+    const tabKanban=document.getElementById("tabKanban");
+    const tableWrap=document.getElementById("tableWrap");
+    const kanbanEl=document.getElementById("kanban");
 
-    // ===== Render Lista =====
+    // ===== Lista =====
     function renderList(){
-      var tbody=document.querySelector("#leadsTable tbody");
       if(!tbody) return;
-      var q=(document.getElementById("search").value||"").toLowerCase();
-      var sTs=parseDateTs(document.getElementById("filterStart").value);
-      var eTs=parseDateTs(document.getElementById("filterEnd").value,true);
-
+      const q=(search?.value||"").toLowerCase();
+      const sTs=parseDateTs(fStart?.value);
+      const eTs=parseDateTs(fEnd?.value,true);
       tbody.innerHTML="";
-      for(var i=0;i<leads.length;i++){
-        var l=leads[i];
-        var txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
-        var d=l.date?parseDateTs(l.date):l.updatedAt;
-        var inDate=(sTs==null||d>=sTs)&&(eTs==null||d<=eTs);
-        if(q && txt.indexOf(q)===-1) continue;
+      for(const l of leads){
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
+        const d=l.date?parseDateTs(l.date):l.updatedAt;
+        const inDate=(sTs==null||d>=sTs)&&(eTs==null||d<=eTs);
+        if(q && !txt.includes(q)) continue;
         if(!inDate) continue;
 
-        var tr=document.createElement("tr");
+        const tr=document.createElement("tr");
         tr.innerHTML=
-          "<td>"+esc(l.name)+"</td>"+
-          "<td>"+esc(l.email||"")+"</td>"+
-          "<td>"+esc(l.phone||"")+"</td>"+
-          "<td>"+esc(l.stage||"novo")+"</td>"+
-          "<td>"+esc(l.source||"")+"</td>"+
-          "<td>"+esc(l.date||"")+"</td>"+
-          "<td>"+new Date(l.updatedAt).toLocaleString()+"</td>";
-
-        var td=document.createElement("td"); td.className="actions-cell";
-        var btnDel=document.createElement("button"); btnDel.className="danger"; btnDel.textContent="Excluir";
-        btnDel.onclick=(function(id){ return function(){ leads=leads.filter(function(x){return x.id!==id;}); persist(); renderAll(); }; })(l.id);
-        td.appendChild(btnDel);
-        tr.appendChild(td);
+          `<td>${esc(l.name)}</td>
+           <td>${esc(l.email||"")}</td>
+           <td>${esc(l.phone||"")}</td>
+           <td>${esc(l.stage||"novo")}</td>
+           <td>${esc(l.source||"")}</td>
+           <td>${esc(l.date||"")}</td>
+           <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
+        const td=document.createElement("td"); td.className="actions-cell";
+        const del=document.createElement("button"); del.textContent="Excluir";
+        del.onclick=()=>{ leads=leads.filter(x=>x.id!==l.id); persist(); renderAll(); };
+        td.appendChild(del); tr.appendChild(td);
         tbody.appendChild(tr);
       }
     }
 
-    // ===== Render Kanban =====
+    // ===== Kanban =====
     function renderKanban(){
-      var stages=["novo","qualificado","proposta","ganho","perdido"];
-      for(var i=0;i<stages.length;i++){
-        var stage=stages[i];
-        var body=document.getElementById("col-"+stage);
-        var count=document.getElementById("count-"+stage);
+      if(!kanbanEl) return;
+      const stages=["novo","qualificado","proposta","ganho","perdido"];
+      for(const stage of stages){
+        const body=document.getElementById("col-"+stage);
+        const count=document.getElementById("count-"+stage);
         if(!body) continue;
         body.innerHTML="";
-        var items=leads.filter(function(x){ return (x.stage||"novo")===stage; });
+        const items=leads.filter(x=> (x.stage||"novo")===stage );
         if(count) count.textContent=items.length;
-        for(var j=0;j<items.length;j++){
-          var l=items[j];
-          var c=document.createElement("div");
-          c.className="kcard";
-          c.setAttribute("draggable","true");
-          c.setAttribute("data-id", l.id);
-          c.innerHTML="<div class='name'>"+esc(l.name||"")+"</div><div class='meta'>"+esc(l.email||"")+"</div>";
-          body.appendChild(c);
+        for(const l of items){
+          const card=document.createElement("div");
+          card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
+          card.innerHTML=`<div class="name">${esc(l.name||"")}</div><div class="meta">${esc(l.email||"")}</div>`;
+          body.appendChild(card);
         }
       }
       bindDnD();
     }
 
     function bindDnD(){
-      var cards=document.querySelectorAll(".kcard");
-      for(var i=0;i<cards.length;i++){
-        (function(card){
-          card.addEventListener("dragstart", function(e){
-            e.dataTransfer.setData("text/plain", card.getAttribute("data-id"));
-          });
-        })(cards[i]);
-      }
-      var cols=document.querySelectorAll(".kbody");
-      for(var j=0;j<cols.length;j++){
-        (function(col){
-          col.addEventListener("dragover", function(e){ e.preventDefault(); col.classList.add("kdrop"); });
-          col.addEventListener("dragleave", function(){ col.classList.remove("kdrop"); });
-          col.addEventListener("drop", function(e){
-            e.preventDefault(); col.classList.remove("kdrop");
-            var id=e.dataTransfer.getData("text/plain");
-            var l=null; for(var k=0;k<leads.length;k++){ if(leads[k].id==id){ l=leads[k]; break; } }
-            if(l){
-              var newStage=col.parentElement.getAttribute("data-stage");
-              if(l.stage!==newStage){
-                l.stage=newStage; l.updatedAt=Date.now();
-                persist(); renderAll();
-              }
-            }
-          });
-        })(cols[j]);
-      }
+      const cards=document.querySelectorAll(".kcard");
+      cards.forEach(card=>{
+        card.addEventListener("dragstart", e=>{
+          e.dataTransfer.setData("text/plain", card.dataset.id);
+        });
+      });
+      const cols=document.querySelectorAll(".kbody");
+      cols.forEach(col=>{
+        col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("kdrop"); });
+        col.addEventListener("dragleave", ()=>col.classList.remove("kdrop"));
+        col.addEventListener("drop", e=>{
+          e.preventDefault(); col.classList.remove("kdrop");
+          const id=e.dataTransfer.getData("text/plain");
+          const l=leads.find(x=>x.id===id);
+          if(!l) return;
+          const newStage=col.parentElement?.dataset.stage;
+          if(newStage && l.stage!==newStage){
+            l.stage=newStage; l.updatedAt=Date.now();
+            persist(); renderAll();
+          }
+        });
+      });
     }
 
     function renderAll(){ renderList(); renderKanban(); }
 
     // ===== Form =====
-    var form=document.getElementById("leadForm");
     if(form){
-      form.addEventListener("submit", function(e){
+      form.addEventListener("submit", e=>{
         e.preventDefault();
-        var lead={
-          id: String(Date.now()),
-          name: document.getElementById("name").value.trim(),
-          email: document.getElementById("email").value.trim(),
-          phone: document.getElementById("phone").value.trim(),
-          stage: document.getElementById("stage").value,
-          source: document.getElementById("source").value.trim(),
-          date: document.getElementById("date").value,
-          notes: document.getElementById("notes").value.trim(),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+        const lead={
+          id:String(Date.now()),
+          name:document.getElementById("name")?.value.trim()||"",
+          email:document.getElementById("email")?.value.trim()||"",
+          phone:document.getElementById("phone")?.value.trim()||"",
+          stage:document.getElementById("stage")?.value||"novo",
+          source:document.getElementById("source")?.value.trim()||"",
+          date:document.getElementById("date")?.value||"",
+          notes:document.getElementById("notes")?.value.trim()||"",
+          createdAt:Date.now(),
+          updatedAt:Date.now()
         };
         if(!lead.name){ alert("Informe ao menos o nome."); return; }
         leads.push(lead); persist(); form.reset(); renderAll();
@@ -269,32 +265,25 @@
     }
 
     // ===== Abas =====
-    var tabList=document.getElementById("tabList");
-    var tabKanban=document.getElementById("tabKanban");
-    var tableWrap=document.getElementById("tableWrap");
-    var kanbanEl=document.getElementById("kanban");
     if(tabList && tabKanban && tableWrap && kanbanEl){
-      tabList.onclick=function(){
+      tabList.onclick=()=>{
         tabList.classList.add("active"); tabKanban.classList.remove("active");
         tableWrap.style.display="block"; kanbanEl.classList.remove("visible");
       };
-      tabKanban.onclick=function(){
+      tabKanban.onclick=()=>{
         tabKanban.classList.add("active"); tabList.classList.remove("active");
         tableWrap.style.display="none"; kanbanEl.classList.add("visible");
         renderKanban();
       };
     }
 
-    // ===== Filtros texto/data =====
-    var search=document.getElementById("search");
-    var fS=document.getElementById("filterStart");
-    var fE=document.getElementById("filterEnd");
-    function hook(el){ if(!el) return; el.addEventListener("input", renderList); el.addEventListener("change", renderList); }
-    hook(search); hook(fS); hook(fE);
+    // Filtros (se existirem)
+    const hook = el => { if(!el) return; el.addEventListener("input", renderList); el.addEventListener("change", renderList); };
+    hook(search); hook(fStart); hook(fEnd);
 
     // Start
     renderAll();
-  })();
+  });
   </script>
 </body>
 </html>
