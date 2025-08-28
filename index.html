@@ -67,9 +67,11 @@
     .khead .title{font-weight:700}
     .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px}
     .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
+
     .kcard{
-      position:relative;
-      background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab
+      position:relative; /* necessário para posicionar o ícone */
+      background:#0f2132;border:1px solid #17324a;border-radius:10px;
+      padding:10px;cursor:grab;overflow:hidden;
     }
     .kcard:active{cursor:grabbing}
     .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
@@ -89,27 +91,21 @@
 
     /* Ícone WhatsApp no card */
     .wa-icon{
-      position:absolute;top:8px;right:8px;z-index:2;
+      position:absolute;top:6px;right:6px;z-index:50;
       display:inline-flex;align-items:center;justify-content:center;
-      width:28px;height:28px;border-radius:999px;
-      background:#0b1a27;border:1px solid #17324a;
-      opacity:.95
+      width:26px;height:26px;border-radius:50%;
+      background:#25D366;border:1px solid #0b1a27;
+      box-shadow:0 2px 4px rgba(0,0,0,.4);transition:all .2s;
     }
-    .wa-icon:hover{opacity:1;transform:translateY(-1px)}
-    .wa-icon svg{width:16px;height:16px;display:block}
+    .wa-icon:hover{transform:scale(1.1)}
+    .wa-icon svg{width:14px;height:14px;display:block;fill:#fff}
 
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
 
     /* === MODAL DETALHES / EDIÇÃO === */
-    .modal{
-      position:fixed;inset:0;background:rgba(0,0,0,.6);
-      display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;
-    }
-    .modal-content{
-      background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;
-      width:100%;max-width:560px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);
-    }
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
+    .modal-content{background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;width:100%;max-width:560px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
     .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
     .modal-header h3{margin:0;font-size:18px}
     .modal-actions{display:flex;gap:8px}
@@ -416,27 +412,23 @@
             card.appendChild(metaOwner);
           }
 
-          // ícone WhatsApp seguro (DOM)
+          // ícone WhatsApp (DOM) com alta prioridade visual
           const wa = digits(l.phone||"");
           if(wa){
             const a=document.createElement("a");
             a.className="wa-icon";
             a.href=`https://wa.me/${wa}`;
             a.target="_blank"; a.rel="noopener";
-            a.title="WhatsApp";
+            a.title="Abrir WhatsApp";
             a.addEventListener("click", ev=>ev.stopPropagation());
-
-            // svg
             a.innerHTML = `
-              <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <circle cx="16" cy="16" r="16" fill="#25D366"/>
-                <path d="M24 16.1c0 4.4-3.6 8-8.1 8-1.4 0-2.7-.3-3.8-.9l-4.2 1.1 1.1-4.1c-.7-1.2-1.1-2.6-1.1-4.1 0-4.4 3.6-8 8-8 4.5 0 8.1 3.6 8.1 8z" fill="#fff"/>
-                <path d="M20.7 18.5c-.1.3-.7.6-1 .7-.3.1-.6.1-1 0s-1.1-.4-1.9-.9c-.7-.5-1.4-1.2-1.6-1.5-.2-.3-.4-.6-.3-.9.1-.3.3-.5.5-.7.1-.2.2-.3.3-.5.1-.1.1-.3 0-.5s-.6-1.5-.8-2-.4-.5-.7-.5h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1.1 2.8 1.2 3c.1.2 2.2 3.4 5.4 4.6.8.4 1.5.6 2 .8.8.2 1.6.2 2.1.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.2.1-1.4-.2-.2-.6-.3-1-.5z" fill="#25D366"/>
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M16 0a16 16 0 1 0 0 32 16 16 0 0 0 0-32z" fill="#25D366"/>
+                <path d="M22.7 18.6c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.1.2-1.9 0-.4-.1-1-.3-2-.7-3.6-1.6-5.9-5.2-6.1-5.5-.2-.3-1.5-2-1.5-3.8 0-1.9 1-2.7 1.3-3 .3-.3.7-.4 1-.4h.7c.2 0 .6 0 .9.7.3.7 1.1 2.6 1.2 2.8.1.2.1.4 0 .6-.1.3-.2.4-.4.7-.2.2-.4.5-.5.7-.2.2-.4.5-.2.8.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.9 1.8.3.1.6.1.8-.1.2-.2 1-.9 1.2-1.2.3-.3.5-.2.8-.1.3.1 1.9.9 2.2 1.1.3.2.5.3.6.5.1.2.1.6 0 .9z" fill="#fff"/>
               </svg>`;
             card.appendChild(a);
           }
 
-          // abrir modal
           card.addEventListener("click", ()=> showLeadDetails(l));
           body.appendChild(card);
         }
@@ -463,10 +455,7 @@
     function renderAll(){renderList();renderKanban();}
 
     /* ===== EXPORTAR CSV ===== */
-    function toCsvRow(arr){return arr.map(v=>{
-      const s = (v==null?"":String(v)).replace(/"/g,'""');
-      return `"${s}"`;
-    }).join(",");}
+    function toCsvRow(arr){return arr.map(v=>('"'+String(v??"").replace(/"/g,'""')+'"')).join(",");}
     function downloadCsv(filename, csv){
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
       const url = URL.createObjectURL(blob);
