@@ -65,6 +65,13 @@
     .kcard .name{font-weight:600;margin-bottom:2px}
     .kcard .meta{opacity:.8}
 
+    /* handle de arrasto */
+    .drag-handle{
+      position:absolute;bottom:6px;right:6px;font-size:14px;line-height:1;
+      background:#0b1520;border:1px solid #17324a;border-radius:8px;padding:3px 6px;user-select:none;cursor:grab
+    }
+    .drag-handle:active{cursor:grabbing}
+
     .kcol[data-stage="novo"]{border-color:#3b82f6}
     .kcol[data-stage="qualificado"]{border-color:#a855f7}
     .kcol[data-stage="proposta"]{border-color:#f59e0b}
@@ -81,8 +88,31 @@
     .wa-icon:hover{transform:scale(1.1)}
     .wa-icon svg{width:14px;height:14px;display:block;fill:#fff}
 
+    /* Botão editar no card */
+    .edit-btn{
+      position:absolute;top:6px;left:6px;
+      background:#0f2132;border:1px solid #17324a;color:#cde9ff;
+      border-radius:8px;padding:4px 6px;cursor:pointer;font-size:12px
+    }
+    .edit-btn:hover{filter:brightness(1.1)}
+
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
+
+    /* Modal */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
+    .modal-content{background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;width:100%;max-width:640px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+    .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+    .modal-header h3{margin:0;font-size:18px}
+    .modal-actions{display:flex;gap:8px}
+    .modal-close{background:transparent;border:1px solid #17324a;color:#cde9ff;border-radius:10px;padding:6px 10px;cursor:pointer}
+    .dl{display:grid;grid-template-columns:140px 1fr;gap:8px;margin-top:8px}
+    .dl b{color:#9fd9ff}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;opacity:.9}
+    .edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .edit-grid textarea{grid-column:1/-1;min-height:100px}
+    .wa-block{margin-top:12px;border-top:1px solid #17324a;padding-top:10px;display:grid;gap:8px}
+    .wa-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
     /* Dashboard */
     .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
@@ -97,6 +127,7 @@
     .row{display:grid;grid-template-columns:140px 1fr 60px;gap:8px;align-items:center;margin:8px 0}
     .mini-table{width:100%;border-collapse:collapse}
     .mini-table th,.mini-table td{border-bottom:1px solid #102437;padding:8px;text-align:left;font-size:13px}
+
     @media (max-width:900px){.dash-grid{grid-template-columns:1fr}.dash-panels{grid-template-columns:1fr}}
     .status{margin-top:8px;font-size:12px;opacity:.85}
     .status.ok{color:#9fe870}
@@ -174,14 +205,8 @@
         </div>
 
         <div class="dash-panels">
-          <div class="panel">
-            <h3>Por Estágio</h3>
-            <div id="dashStages"></div>
-          </div>
-          <div class="panel">
-            <h3>Por Qualificação</h3>
-            <div id="dashQualif"></div>
-          </div>
+          <div class="panel"><h3>Por Estágio</h3><div id="dashStages"></div></div>
+          <div class="panel"><h3>Por Qualificação</h3><div id="dashQualif"></div></div>
           <div class="panel" style="grid-column:1/-1">
             <h3>Leads por Atendente</h3>
             <table class="mini-table" id="dashOwners">
@@ -314,6 +339,9 @@
 
     /* ===== MODAL ===== */
     function showLeadDetails(lead){
+      // garante que não existam dois modais
+      document.querySelectorAll(".modal").forEach(m=>m.remove());
+
       const wa = digits(lead.phone||"");
       const waLink = wa ? `<a class="quick" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '-';
       const mail = lead.email ? `<a class="quick" href="mailto:${encodeURIComponent(lead.email)}">Enviar e-mail</a>` : '-';
@@ -514,6 +542,17 @@
 
     /* ===== KANBAN ===== */
     const STAGES=["novo","qualificado","proposta","vendido","perdido"];
+
+    function openEditForLead(lead){
+      showLeadDetails(lead);
+      // tenta abrir o modo editar logo em seguida (dupla garantia)
+      setTimeout(()=>{ 
+        const btn=document.querySelector('.modal #editBtn');
+        if(btn){ btn.click(); }
+        else { setTimeout(()=>document.querySelector('.modal #editBtn')?.click(), 50); }
+      }, 0);
+    }
+
     function renderKanban(){
       for(const stage of STAGES){
         const body=document.getElementById("col-"+stage);
@@ -521,9 +560,22 @@
         body.innerHTML="";
         const items=leads.filter(x=>(x.stage||"novo")===stage);
         count.textContent=items.length;
+
         for(const l of items){
           const card=document.createElement("div");
-          card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
+          card.className="kcard";
+          card.draggable=true;       // drag só via handle (ver listener de dragstart)
+          card.dataset.id=l.id;
+          card.tabIndex=0;
+
+          // botão ✏️ para editar direto
+          const edit=document.createElement("button");
+          edit.type="button";
+          edit.className="edit-btn";
+          edit.title="Editar lead";
+          edit.innerHTML="✏️";
+          edit.addEventListener("click",(ev)=>{ ev.stopPropagation(); openEditForLead(l); });
+          card.appendChild(edit);
 
           const nameEl=document.createElement("div"); nameEl.className="name"; nameEl.textContent=l.name||"";
           const metaEmail=document.createElement("div"); metaEmail.className="meta"; metaEmail.textContent=l.email||"";
@@ -542,16 +594,34 @@
             card.appendChild(a);
           }
 
+          // handle de arrasto (⠿)
+          const handle=document.createElement("div");
+          handle.className="drag-handle";
+          handle.title="Arrastar para outra coluna";
+          handle.textContent="⠿";
+          card.appendChild(handle);
+
+          // clique normal → detalhes; duplo clique → editar direto
           card.addEventListener("click", ()=> showLeadDetails(l));
+          card.addEventListener("dblclick", (ev)=>{ ev.preventDefault(); openEditForLead(l); });
+          card.addEventListener("keydown", (ev)=>{
+            if(ev.key==="Enter") showLeadDetails(l);
+            if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase()==="e"){ ev.preventDefault(); openEditForLead(l); }
+          });
+
+          // drag só se o usuário iniciar o gesto no handle:
+          card.addEventListener("dragstart", e=>{
+            if(!e.target.closest(".drag-handle")){ e.preventDefault(); return; }
+            e.dataTransfer.setData("text/plain", card.dataset.id);
+          });
+
           body.appendChild(card);
         }
       }
       bindDnD();
     }
+
     function bindDnD(){
-      document.querySelectorAll(".kcard").forEach(card=>{
-        card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", card.dataset.id); });
-      });
       document.querySelectorAll(".kbody").forEach(col=>{
         col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("kdrop"); });
         col.addEventListener("dragleave", ()=>col.classList.remove("kdrop"));
