@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CRM PixelUp — MVP</title>
+  <title>CRM PixelUp — Lista + Kanban</title>
   <style>
     *{box-sizing:border-box}
     body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
@@ -29,9 +29,7 @@
 
     .table-wrap{overflow-x:auto;border:1px solid #102437;border-radius:12px}
     table{width:100%;border-collapse:collapse}
-    /* cabeçalho sem quebrar */
     th{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap;background:#0b1520;position:sticky;top:0;cursor:pointer}
-    /* células quebram a linha quando necessário */
     td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:normal;word-break:break-word}
     tr:hover{background:#0f1d2b}
 
@@ -43,6 +41,25 @@
 
     .tag{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #17324a;background:#0f2132;color:#bfe6ff}
     .warn{background:#2b1a00;border:1px solid #5a3b00;color:#ffd699;padding:10px;border-radius:10px;margin-bottom:12px;display:none}
+
+    /* === KANBAN === */
+    .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
+    .view-switch .tab{background:#0f2132;border:1px solid #17324a;color:#cde9ff;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .view-switch .tab.active{background:#18a4ff;border-color:#18a4ff;color:#001727;font-weight:700}
+    .kanban{display:none;gap:12px;align-items:flex-start}
+    .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
+    .kcol{background:#0d1b29;border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
+    .khead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #102437}
+    .khead .title{font-weight:700}
+    .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px;color:#9fd9ff}
+    .kbody{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+    .kcard{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab}
+    .kcard:active{cursor:grabbing}
+    .kcard .name{font-weight:700;margin-bottom:4px}
+    .kcard .meta{font-size:12px;opacity:.85}
+    .kdrop{outline:2px dashed #17324a;outline-offset:-6px}
+    @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -99,7 +116,13 @@
         </div>
       </div>
 
-      <div class="table-wrap">
+      <div class="view-switch">
+        <button id="tabList"  class="tab active">Lista</button>
+        <button id="tabKanban" class="tab">Kanban</button>
+      </div>
+
+      <!-- LISTA -->
+      <div class="table-wrap" id="tableWrap">
         <table id="leadsTable">
           <thead>
             <tr>
@@ -117,11 +140,35 @@
           <tbody></tbody>
         </table>
       </div>
+
+      <!-- KANBAN -->
+      <div id="kanban" class="kanban">
+        <div class="kcol" data-stage="novo">
+          <div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div>
+          <div class="kbody" id="col-novo"></div>
+        </div>
+        <div class="kcol" data-stage="qualificado">
+          <div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div>
+          <div class="kbody" id="col-qualificado"></div>
+        </div>
+        <div class="kcol" data-stage="proposta">
+          <div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div>
+          <div class="kbody" id="col-proposta"></div>
+        </div>
+        <div class="kcol" data-stage="ganho">
+          <div class="khead"><span class="title">Ganho</span><span class="count" id="count-ganho">0</span></div>
+          <div class="kbody" id="col-ganho"></div>
+        </div>
+        <div class="kcol" data-stage="perdido">
+          <div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div>
+          <div class="kbody" id="col-perdido"></div>
+        </div>
+      </div>
     </section>
   </main>
 
   <footer class="footer">
-    <p>Feito com 💙 pela PixelUp — MVP completo</p>
+    <p>Feito com 💙 pela PixelUp — MVP Lista + Kanban</p>
   </footer>
 
   <script>
@@ -142,14 +189,8 @@
     }
 
     // ===== UTILS =====
-    function esc(s){ return String(s||"").replace(/[&<>\"']/g,function(m){return({"&":"&amp;","<":"&lt;","<": "&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])}); } // safe
-    function formatPhoneToWa(num){
-      var d=String(num||"").replace(/\D/g,"");
-      if(d.length>=10&&d.length<=12&&d.indexOf("55")!==0) d="55"+d; // tenta BR
-      return "https://wa.me/"+d+"?text="+encodeURIComponent("Olá! Vi seu cadastro no CRM PixelUp 🙂");
-    }
-
-    // aceita "yyyy-mm-dd" ou "dd/mm/yyyy"
+    function escapeHtml(s){ return String(s||"").replace(/[&<>\"']/g,function(m){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])}); }
+    function formatPhoneToWa(num){ var d=String(num||"").replace(/\D/g,""); if(d.length>=10&&d.length<=12&&d.indexOf("55")!==0) d="55"+d; return "https://wa.me/"+d+"?text="+encodeURIComponent("Olá! Vi seu cadastro no CRM PixelUp 🙂"); }
     function parseDateTs(str,endOfDay){
       if(!str) return null;
       var y,m,d;
@@ -158,12 +199,7 @@
       else return null;
       return new Date(y,m,d, endOfDay?23:0, endOfDay?59:0, endOfDay?59:0, endOfDay?999:0).getTime();
     }
-    function formatDate(str, fbTs){
-      var ts=parseDateTs(str);
-      if(ts) return new Date(ts).toLocaleDateString();
-      return new Date(fbTs||Date.now()).toLocaleString();
-    }
-
+    function formatDate(str, fbTs){ var ts=parseDateTs(str); if(ts) return new Date(ts).toLocaleDateString(); return new Date(fbTs||Date.now()).toLocaleString(); }
     function toCSV(rows){
       var headers=["id","name","email","phone","stage","source","notes","date","createdAt","updatedAt"];
       var out=[headers.join(",")];
@@ -188,17 +224,19 @@
     var sortKey="updatedAt", sortDir="desc";
 
     // ===== DOM =====
-    var form=document.getElementById("leadForm"), tbody=document.querySelector("#leadsTable tbody");
+    var form=document.getElementById("leadForm");
+    var tbody=document.querySelector("#leadsTable tbody");
     var search=document.getElementById("search"), filterStage=document.getElementById("filterStage");
     var filterStart=document.getElementById("filterStart"), filterEnd=document.getElementById("filterEnd");
     var exportBtn=document.getElementById("exportCsvBtn"), importInp=document.getElementById("importJsonInput");
+    var tabList=document.getElementById("tabList"), tabKanban=document.getElementById("tabKanban");
+    var kanbanEl=document.getElementById("kanban"), tableWrap=document.getElementById("tableWrap");
 
-    // ===== RENDER =====
+    // ===== RENDER LISTA =====
     function render(){
       var q=(search.value||"").toLowerCase();
       var st=filterStage.value;
-      var sTs=parseDateTs(filterStart.value);
-      var eTs=parseDateTs(filterEnd.value,true);
+      var sTs=parseDateTs(filterStart.value), eTs=parseDateTs(filterEnd.value,true);
 
       var filtered=leads.filter(function(l){
         var textOk=(l.name||"").toLowerCase().includes(q)
@@ -220,12 +258,12 @@
       filtered.forEach(function(l){
         var tr=document.createElement("tr");
         tr.innerHTML =
-          "<td>"+esc(l.name)+"</td>"+
-          "<td>"+esc(l.email||"")+"</td>"+
-          "<td>"+esc(l.phone||"")+"</td>"+
-          "<td><span class='tag'>"+esc(l.stage||"novo")+"</span></td>"+
-          "<td>"+esc(l.source||"")+"</td>"+
-          "<td>"+esc(formatDate(l.date,l.createdAt))+"</td>"+
+          "<td>"+escapeHtml(l.name)+"</td>"+
+          "<td>"+escapeHtml(l.email||"")+"</td>"+
+          "<td>"+escapeHtml(l.phone||"")+"</td>"+
+          "<td><span class='tag'>"+escapeHtml(l.stage||"novo")+"</span></td>"+
+          "<td>"+escapeHtml(l.source||"")+"</td>"+
+          "<td>"+escapeHtml(formatDate(l.date,l.createdAt))+"</td>"+
           "<td>"+new Date(l.createdAt).toLocaleString()+"</td>"+
           "<td>"+new Date(l.updatedAt).toLocaleString()+"</td>";
         var tdAct=document.createElement("td"); tdAct.className="actions-cell";
@@ -255,7 +293,7 @@
         updatedAt: Date.now()
       };
       if(!lead.name){ alert("Informe ao menos o nome."); return; }
-      leads.push(lead); persist(); form.reset(); render();
+      leads.push(lead); persist(); form.reset(); render(); renderKanban();
     });
 
     // ===== EDIT/DEL =====
@@ -269,12 +307,12 @@
       var notes=prompt("Notas:",l.notes||""); if(notes===null) return;
       var date=prompt("Data (yyyy-mm-dd ou dd/mm/yyyy):",l.date||"")||l.date||"";
       Object.assign(l,{name,email,phone,stage,source,notes,date,updatedAt:Date.now()});
-      persist(); render();
+      persist(); render(); renderKanban();
     }
     function deleteLead(id){
       if(!confirm("Excluir este lead?")) return;
       leads=leads.filter(function(x){return x.id!==id;});
-      persist(); render();
+      persist(); render(); renderKanban();
     }
 
     // ===== SORT =====
@@ -284,6 +322,7 @@
         if(sortKey===k) sortDir = (sortDir==="asc" ? "desc":"asc");
         else { sortKey=k; sortDir="asc"; }
         render();
+        renderKanban();
       });
     });
 
@@ -303,12 +342,87 @@
             if(Array.isArray(arr)){
               var by={}; leads.forEach(function(l){by[l.id]=l;});
               arr.forEach(function(n){ if(n&&n.id){by[n.id]=n;} });
-              leads=Object.values(by); persist(); render();
+              leads=Object.values(by); persist(); render(); renderKanban();
               alert("Importado com sucesso!");
             }else alert("JSON inválido (esperado array).");
           }catch(err){ alert("Falha ao ler JSON: "+err.message); }
         };
         r.readAsText(f);
+      });
+    }
+
+    // ===== SWITCH LISTA/KANBAN =====
+    if (tabList && tabKanban && kanbanEl && tableWrap){
+      tabList.onclick = function(){
+        tabList.classList.add("active"); tabKanban.classList.remove("active");
+        kanbanEl.classList.remove("visible"); tableWrap.style.display = "block";
+      };
+      tabKanban.onclick = function(){
+        tabKanban.classList.add("active"); tabList.classList.remove("active");
+        tableWrap.style.display = "none"; kanbanEl.classList.add("visible");
+        renderKanban();
+      };
+    }
+
+    // ===== KANBAN =====
+    function renderKanban(){
+      var columns = ["novo","qualificado","proposta","ganho","perdido"];
+      for (var i=0;i<columns.length;i++){
+        var stage = columns[i];
+        var body = document.getElementById("col-"+stage);
+        var count = document.getElementById("count-"+stage);
+        if(!body) continue;
+        body.innerHTML = "";
+        var items = leads.filter(function(l){ return (l.stage||"novo")===stage; });
+        if(count) count.textContent = items.length;
+
+        for (var j=0;j<items.length;j++){
+          var l = items[j];
+          var card = document.createElement("div");
+          card.className = "kcard";
+          card.setAttribute("draggable","true");
+          card.dataset.id = l.id;
+
+          var html = "";
+          html += "<div class='name'>"+escapeHtml(l.name||"")+"</div>";
+          html += "<div class='meta'>"+escapeHtml(l.email||"")+"</div>";
+          html += "<div class='meta'>"+escapeHtml(l.phone||"")+"</div>";
+          html += "<div class='meta'>"+new Date(l.updatedAt||Date.now()).toLocaleString()+"</div>";
+          card.innerHTML = html;
+
+          addDnDHandlers(card);
+          body.appendChild(card);
+        }
+        addDropHandlers(body, stage);
+      }
+    }
+
+    function addDnDHandlers(el){
+      el.addEventListener("dragstart", function(e){
+        e.dataTransfer.setData("text/plain", el.dataset.id);
+        setTimeout(function(){ el.classList.add("ghost"); }, 0);
+      });
+      el.addEventListener("dragend", function(){
+        el.classList.remove("ghost");
+      });
+    }
+    function addDropHandlers(container, stage){
+      container.addEventListener("dragover", function(e){
+        e.preventDefault(); container.classList.add("kdrop");
+      });
+      container.addEventListener("dragleave", function(){ container.classList.remove("kdrop"); });
+      container.addEventListener("drop", function(e){
+        e.preventDefault(); container.classList.remove("kdrop");
+        var id = e.dataTransfer.getData("text/plain");
+        var l = leads.find(function(x){ return x.id===id; });
+        if(!l) return;
+        if(l.stage !== stage){
+          l.stage = stage;
+          l.updatedAt = Date.now();
+          persist();
+          render();
+          renderKanban();
+        }
       });
     }
 
@@ -320,6 +434,7 @@
       filterEnd.addEventListener(ev,render);
     });
     render();
+    renderKanban();
   })();
   </script>
 </body>
