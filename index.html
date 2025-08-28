@@ -1,192 +1,117 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CRM PixelUp — Lista + Kanban</title>
-  <style>
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
-    .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
-    .topbar h1{margin:0;font-size:20px;font-weight:700}
-    .topbar h1 span{color:#2bb8ff;text-shadow:0 0 12px rgba(43,184,255,.6)}
-    .actions{display:flex;gap:10px;align-items:center}
-    .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
-    .card{background:#0d1b29;border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
-    h2{margin:0 0 12px;font-size:18px}
+<script>
+(function(){
+  var leads = JSON.parse(localStorage.getItem("pixelup_crm_leads_v1")||"[]");
+  function persist(){ localStorage.setItem("pixelup_crm_leads_v1", JSON.stringify(leads)); }
 
-    .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-    .form-grid textarea{grid-column:1/-1;min-height:80px}
-    .form-grid button{grid-column:1/-1}
-    input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
-    input::placeholder,textarea::placeholder{color:#7fa8c3}
-    .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
-    .btn.secondary{background:#0f2132;color:#cde9ff;border-color:#17324a}
-
-    .list-header{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:10px}
-    .filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .filter-dates{display:flex;gap:8px;align-items:center}
-
-    .table-wrap{overflow-x:auto;border:1px solid #102437;border-radius:12px}
-    table{width:100%;border-collapse:collapse}
-    th{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap;background:#0b1520;position:sticky;top:0;cursor:pointer}
-    td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:normal;word-break:break-word}
-    tr:hover{background:#0f1d2b}
-
-    .actions-cell a,.actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer;text-decoration:none;display:inline-block}
-    .actions-cell .danger{border-color:#ff4d4d;color:#ff7878}
-
-    .footer{padding:20px;text-align:center;color:#86c8ea;opacity:.8}
-    @media (max-width:900px){.form-grid{grid-template-columns:1fr}.filters{flex-direction:column;align-items:stretch}}
-
-    .tag{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #17324a;background:#0f2132;color:#bfe6ff}
-    .warn{background:#2b1a00;border:1px solid #5a3b00;color:#ffd699;padding:10px;border-radius:10px;margin-bottom:12px;display:none}
-
-    /* === KANBAN === */
-    .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
-    .view-switch .tab{background:#0f2132;border:1px solid #17324a;color:#cde9ff;padding:8px 12px;border-radius:10px;cursor:pointer}
-    .view-switch .tab.active{background:#18a4ff;border-color:#18a4ff;color:#001727;font-weight:700}
-    .kanban{display:none;gap:12px;align-items:flex-start}
-    .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
-    .kcol{background:#0d1b29;border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
-    .khead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #102437}
-    .khead .title{font-weight:700}
-    .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px;color:#9fd9ff}
-    .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
-    .kcard{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab}
-    .kcard:active{cursor:grabbing}
-    .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
-    @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
-    @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
-  </style>
-</head>
-<body>
-  <header class="topbar">
-    <h1>CRM <span>PixelUp</span></h1>
-    <div class="actions">
-      <button id="exportCsvBtn" class="btn">Exportar CSV</button>
-      <label class="btn secondary">
-        Importar JSON
-        <input id="importJsonInput" type="file" accept="application/json" hidden>
-      </label>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="card">
-      <h2>Novo Lead</h2>
-      <form id="leadForm" class="form-grid">
-        <input id="name" placeholder="Nome" required />
-        <input id="email" type="email" placeholder="E-mail" />
-        <input id="phone" placeholder="WhatsApp" />
-        <select id="stage">
-          <option value="novo">Novo</option>
-          <option value="qualificado">Qualificado</option>
-          <option value="proposta">Proposta</option>
-          <option value="ganho">Ganho</option>
-          <option value="perdido">Perdido</option>
-        </select>
-        <input id="source" placeholder="Origem" />
-        <input id="date" type="date" />
-        <textarea id="notes" placeholder="Notas"></textarea>
-        <button class="btn" type="submit">Salvar</button>
-      </form>
-    </section>
-
-    <section class="card">
-      <div class="view-switch">
-        <button id="tabList" class="tab active">Lista</button>
-        <button id="tabKanban" class="tab">Kanban</button>
-      </div>
-
-      <!-- LISTA -->
-      <div class="table-wrap" id="tableWrap">
-        <table id="leadsTable">
-          <thead>
-            <tr>
-              <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Estágio</th><th>Origem</th><th>Data</th><th>Atualizado</th><th>Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <!-- KANBAN -->
-      <div id="kanban" class="kanban">
-        <div class="kcol" data-stage="novo"><div class="khead"><span>Novo</span><span id="count-novo"></span></div><div class="kbody" id="col-novo"></div></div>
-        <div class="kcol" data-stage="qualificado"><div class="khead"><span>Qualificado</span><span id="count-qualificado"></span></div><div class="kbody" id="col-qualificado"></div></div>
-        <div class="kcol" data-stage="proposta"><div class="khead"><span>Proposta</span><span id="count-proposta"></span></div><div class="kbody" id="col-proposta"></div></div>
-        <div class="kcol" data-stage="ganho"><div class="khead"><span>Ganho</span><span id="count-ganho"></span></div><div class="kbody" id="col-ganho"></div></div>
-        <div class="kcol" data-stage="perdido"><div class="khead"><span>Perdido</span><span id="count-perdido"></span></div><div class="kbody" id="col-perdido"></div></div>
-      </div>
-    </section>
-  </main>
-
-  <script>
-  (function(){
-    var leads = JSON.parse(localStorage.getItem("pixelup_crm_leads_v1")||"[]");
-
-    function persist(){ localStorage.setItem("pixelup_crm_leads_v1", JSON.stringify(leads)); }
-
-    function renderList(){
-      var tbody=document.querySelector("#leadsTable tbody");
-      tbody.innerHTML="";
-      leads.forEach(l=>{
-        var tr=document.createElement("tr");
-        tr.innerHTML=`<td>${l.name}</td><td>${l.email||""}</td><td>${l.phone||""}</td><td>${l.stage}</td><td>${l.source||""}</td><td>${l.date||""}</td><td>${new Date(l.updatedAt).toLocaleString()}</td>`;
-        var td=document.createElement("td");
-        var del=document.createElement("button");del.textContent="Excluir";del.onclick=()=>{leads=leads.filter(x=>x.id!==l.id);persist();renderAll();};
-        td.appendChild(del); tr.appendChild(td); tbody.appendChild(tr);
-      });
-    }
-
-    function renderKanban(){
-      ["novo","qualificado","proposta","ganho","perdido"].forEach(stage=>{
-        var body=document.getElementById("col-"+stage);
-        var count=document.getElementById("count-"+stage);
-        body.innerHTML=""; var items=leads.filter(l=>l.stage===stage);
-        count.textContent=items.length;
-        items.forEach(l=>{
-          var c=document.createElement("div");
-          c.className="kcard"; c.draggable=true; c.dataset.id=l.id;
-          c.innerHTML=`<div class='name'>${l.name}</div><div class='meta'>${l.email||""}</div>`;
-          body.appendChild(c);
-        });
-      });
-      bindDnD();
-    }
-
-    function bindDnD(){
-      document.querySelectorAll(".kcard").forEach(card=>{
-        card.addEventListener("dragstart",e=>{ e.dataTransfer.setData("id",card.dataset.id); });
-      });
-      document.querySelectorAll(".kbody").forEach(col=>{
-        col.addEventListener("dragover",e=>{ e.preventDefault(); col.classList.add("kdrop"); });
-        col.addEventListener("dragleave",()=>col.classList.remove("kdrop"));
-        col.addEventListener("drop",e=>{
-          e.preventDefault(); col.classList.remove("kdrop");
-          var id=e.dataTransfer.getData("id");
-          var l=leads.find(x=>x.id===id);
-          if(l){ l.stage=col.parentElement.dataset.stage; l.updatedAt=Date.now(); persist(); renderAll(); }
-        });
-      });
-    }
-
-    function renderAll(){ renderList(); renderKanban(); }
-
-    document.getElementById("leadForm").addEventListener("submit",e=>{
-      e.preventDefault();
-      var f=e.target;
-      leads.push({id:Date.now().toString(),name:f.name.value, email:f.email.value, phone:f.phone.value, stage:f.stage.value, source:f.source.value, date:f.date.value, notes:f.notes.value, createdAt:Date.now(), updatedAt:Date.now()});
-      persist(); f.reset(); renderAll();
+  // ===== LISTA =====
+  function renderList(){
+    var tbody=document.querySelector("#leadsTable tbody");
+    tbody.innerHTML="";
+    leads.forEach(l=>{
+      var tr=document.createElement("tr");
+      tr.innerHTML=`
+        <td>${l.name}</td>
+        <td>${l.email||""}</td>
+        <td>${l.phone||""}</td>
+        <td>${l.stage}</td>
+        <td>${l.source||""}</td>
+        <td>${l.date||""}</td>
+        <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
+      var td=document.createElement("td");
+      var del=document.createElement("button");
+      del.textContent="Excluir";
+      del.onclick=()=>{leads=leads.filter(x=>x.id!==l.id);persist();renderAll();};
+      td.appendChild(del);
+      tr.appendChild(td);
+      tbody.appendChild(tr);
     });
+  }
 
-    // Tab switch
-    document.getElementById("tabList").onclick=()=>{document.getElementById("tabList").classList.add("active");document.getElementById("tabKanban").classList.remove("active");document.getElementById("tableWrap").style.display="block";document.getElementById("kanban").style.display="none";};
-    document.getElementById("tabKanban").onclick=()=>{document.getElementById("tabKanban").classList.add("active");document.getElementById("tabList").classList.remove("active");document.getElementById("tableWrap").style.display="none";document.getElementById("kanban").style.display="grid";renderKanban();};
+  // ===== KANBAN =====
+  function renderKanban(){
+    ["novo","qualificado","proposta","ganho","perdido"].forEach(stage=>{
+      var body=document.getElementById("col-"+stage);
+      var count=document.getElementById("count-"+stage);
+      body.innerHTML="";
+      var items=leads.filter(l=>l.stage===stage);
+      count.textContent=items.length;
+      items.forEach(l=>{
+        var c=document.createElement("div");
+        c.className="kcard";
+        c.draggable=true;
+        c.dataset.id=l.id;
+        c.innerHTML=`<div class='name'>${l.name}</div><div class='meta'>${l.email||""}</div>`;
+        body.appendChild(c);
+      });
+    });
+    bindDnD();
+  }
 
-    renderAll();
-  })();
-  </script>
-</body>
-</html>
+  function bindDnD(){
+    document.querySelectorAll(".kcard").forEach(card=>{
+      card.addEventListener("dragstart",e=>{
+        e.dataTransfer.setData("id",card.dataset.id);
+      });
+    });
+    document.querySelectorAll(".kbody").forEach(col=>{
+      col.addEventListener("dragover",e=>{ e.preventDefault(); col.classList.add("kdrop"); });
+      col.addEventListener("dragleave",()=>col.classList.remove("kdrop"));
+      col.addEventListener("drop",e=>{
+        e.preventDefault(); col.classList.remove("kdrop");
+        var id=e.dataTransfer.getData("id");
+        var l=leads.find(x=>x.id===id);
+        if(l){
+          l.stage=col.parentElement.dataset.stage;
+          l.updatedAt=Date.now();
+          persist();
+          renderAll();
+        }
+      });
+    });
+  }
+
+  function renderAll(){ renderList(); renderKanban(); }
+
+  // ===== FORM =====
+  document.getElementById("leadForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    var f=e.target;
+    leads.push({
+      id:Date.now().toString(),
+      name:f.name.value,
+      email:f.email.value,
+      phone:f.phone.value,
+      stage:f.stage.value,
+      source:f.source.value,
+      date:f.date.value,
+      notes:f.notes.value,
+      createdAt:Date.now(),
+      updatedAt:Date.now()
+    });
+    persist(); f.reset(); renderAll();
+  });
+
+  // ===== TAB SWITCH =====
+  var tabList=document.getElementById("tabList");
+  var tabKanban=document.getElementById("tabKanban");
+  var tableWrap=document.getElementById("tableWrap");
+  var kanbanEl=document.getElementById("kanban");
+
+  tabList.onclick=()=>{
+    tabList.classList.add("active");
+    tabKanban.classList.remove("active");
+    tableWrap.style.display="block";
+    kanbanEl.classList.remove("visible");
+  };
+  tabKanban.onclick=()=>{
+    tabKanban.classList.add("active");
+    tabList.classList.remove("active");
+    tableWrap.style.display="none";
+    kanbanEl.classList.add("visible"); // agora aplica a classe certa
+    renderKanban();
+  };
+
+  // ===== INIT =====
+  renderAll();
+})();
+</script>
