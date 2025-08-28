@@ -1,3 +1,28 @@
+// Detecta storage e mostra aviso
+var storageMode = "localStorage";
+try { localStorage.setItem("__t__","1"); localStorage.removeItem("__t__"); }
+catch(e){ storageMode = "cookie"; document.getElementById("lsWarning").style.display="block"; }
+
+// Escrita/leitura com fallback
+function saveBlob(key, value){
+  if (storageMode === "localStorage") {
+    try { localStorage.setItem(key, value); } catch(e){}
+  } else {
+    document.cookie = key + "=" + encodeURIComponent(value) + "; path=/; max-age=31536000; samesite=lax";
+  }
+}
+function loadBlob(key){
+  if (storageMode === "localStorage") {
+    try { return localStorage.getItem(key); } catch(e){ return null; }
+  } else {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + key + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+}
+
+// Use sempre estas:
+function persist(){ saveBlob("pixelup_crm_leads_v1", JSON.stringify(leads)); }
+function loadLeads(){ try { return JSON.parse(loadBlob("pixelup_crm_leads_v1") || "[]"); } catch(e){ return []; } }
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
