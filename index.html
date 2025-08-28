@@ -1,117 +1,300 @@
-<script>
-(function(){
-  var leads = JSON.parse(localStorage.getItem("pixelup_crm_leads_v1")||"[]");
-  function persist(){ localStorage.setItem("pixelup_crm_leads_v1", JSON.stringify(leads)); }
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CRM PixelUp — Lista + Kanban</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
+    .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
+    .topbar h1{margin:0;font-size:20px;font-weight:700}
+    .topbar h1 span{color:#2bb8ff;text-shadow:0 0 12px rgba(43,184,255,.6)}
+    .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
+    .card{background:#0d1b29;border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+    h2{margin:0 0 12px;font-size:18px}
 
-  // ===== LISTA =====
-  function renderList(){
-    var tbody=document.querySelector("#leadsTable tbody");
-    tbody.innerHTML="";
-    leads.forEach(l=>{
-      var tr=document.createElement("tr");
-      tr.innerHTML=`
-        <td>${l.name}</td>
-        <td>${l.email||""}</td>
-        <td>${l.phone||""}</td>
-        <td>${l.stage}</td>
-        <td>${l.source||""}</td>
-        <td>${l.date||""}</td>
-        <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
-      var td=document.createElement("td");
-      var del=document.createElement("button");
-      del.textContent="Excluir";
-      del.onclick=()=>{leads=leads.filter(x=>x.id!==l.id);persist();renderAll();};
-      td.appendChild(del);
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-    });
-  }
+    .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .form-grid textarea{grid-column:1/-1;min-height:80px}
+    .form-grid button{grid-column:1/-1}
+    input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
+    input::placeholder,textarea::placeholder{color:#7fa8c3}
+    .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
 
-  // ===== KANBAN =====
-  function renderKanban(){
-    ["novo","qualificado","proposta","ganho","perdido"].forEach(stage=>{
-      var body=document.getElementById("col-"+stage);
-      var count=document.getElementById("count-"+stage);
-      body.innerHTML="";
-      var items=leads.filter(l=>l.stage===stage);
-      count.textContent=items.length;
-      items.forEach(l=>{
-        var c=document.createElement("div");
-        c.className="kcard";
-        c.draggable=true;
-        c.dataset.id=l.id;
-        c.innerHTML=`<div class='name'>${l.name}</div><div class='meta'>${l.email||""}</div>`;
-        body.appendChild(c);
-      });
-    });
-    bindDnD();
-  }
+    .list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px;flex-wrap:wrap}
+    .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .filter-dates{display:flex;gap:8px;align-items:center}
 
-  function bindDnD(){
-    document.querySelectorAll(".kcard").forEach(card=>{
-      card.addEventListener("dragstart",e=>{
-        e.dataTransfer.setData("id",card.dataset.id);
-      });
-    });
-    document.querySelectorAll(".kbody").forEach(col=>{
-      col.addEventListener("dragover",e=>{ e.preventDefault(); col.classList.add("kdrop"); });
-      col.addEventListener("dragleave",()=>col.classList.remove("kdrop"));
-      col.addEventListener("drop",e=>{
-        e.preventDefault(); col.classList.remove("kdrop");
-        var id=e.dataTransfer.getData("id");
-        var l=leads.find(x=>x.id===id);
-        if(l){
-          l.stage=col.parentElement.dataset.stage;
-          l.updatedAt=Date.now();
-          persist();
-          renderAll();
+    .table-wrap{overflow-x:auto;border:1px solid #102437;border-radius:12px}
+    table{width:100%;border-collapse:collapse}
+    th{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap;background:#0b1520;position:sticky;top:0}
+    td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:normal;word-break:break-word}
+    tr:hover{background:#0f1d2b}
+
+    .actions-cell a,.actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer;text-decoration:none;display:inline-block}
+    .actions-cell .danger{border-color:#ff4d4d;color:#ff7878}
+
+    /* === KANBAN === */
+    .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
+    .view-switch .tab{background:#0f2132;border:1px solid #17324a;color:#cde9ff;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .view-switch .tab.active{background:#18a4ff;border-color:#18a4ff;color:#001727;font-weight:700}
+
+    .kanban{display:none;gap:12px;align-items:flex-start}
+    .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
+    .kcol{background:#0d1b29;border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
+    .khead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #102437}
+    .khead .title{font-weight:700}
+    .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px;color:#9fd9ff}
+    .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
+    .kcard{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab}
+    .kcard:active{cursor:grabbing}
+    .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
+
+    @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="topbar"><h1>CRM <span>PixelUp</span></h1></header>
+
+  <main class="container">
+    <!-- Formulário -->
+    <section class="card">
+      <h2>Novo Lead</h2>
+      <form id="leadForm" class="form-grid">
+        <input id="name" placeholder="Nome" required />
+        <input id="email" type="email" placeholder="E-mail" />
+        <input id="phone" placeholder="WhatsApp" />
+        <select id="stage">
+          <option value="novo">Novo</option>
+          <option value="qualificado">Qualificado</option>
+          <option value="proposta">Proposta</option>
+          <option value="ganho">Ganho</option>
+          <option value="perdido">Perdido</option>
+        </select>
+        <input id="source" placeholder="Origem" />
+        <input id="date" type="date" />
+        <textarea id="notes" placeholder="Notas"></textarea>
+        <button class="btn" type="submit">Salvar</button>
+      </form>
+    </section>
+
+    <!-- Lista + Kanban -->
+    <section class="card">
+      <div class="list-header">
+        <h2>Leads</h2>
+        <div class="filters">
+          <input id="search" placeholder="Buscar..." />
+          <div class="filter-dates">
+            <span>De</span><input id="filterStart" type="date">
+            <span>Até</span><input id="filterEnd" type="date">
+          </div>
+        </div>
+      </div>
+
+      <div class="view-switch">
+        <button id="tabList" class="tab active">Lista</button>
+        <button id="tabKanban" class="tab">Kanban</button>
+      </div>
+
+      <!-- LISTA -->
+      <div class="table-wrap" id="tableWrap">
+        <table id="leadsTable">
+          <thead>
+            <tr>
+              <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Estágio</th><th>Origem</th><th>Data</th><th>Atualizado</th><th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- KANBAN -->
+      <div id="kanban" class="kanban">
+        <div class="kcol" data-stage="novo">
+          <div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div>
+          <div class="kbody" id="col-novo"></div>
+        </div>
+        <div class="kcol" data-stage="qualificado">
+          <div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div>
+          <div class="kbody" id="col-qualificado"></div>
+        </div>
+        <div class="kcol" data-stage="proposta">
+          <div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div>
+          <div class="kbody" id="col-proposta"></div>
+        </div>
+        <div class="kcol" data-stage="ganho">
+          <div class="khead"><span class="title">Ganho</span><span class="count" id="count-ganho">0</span></div>
+          <div class="kbody" id="col-ganho"></div>
+        </div>
+        <div class="kcol" data-stage="perdido">
+          <div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div>
+          <div class="kbody" id="col-perdido"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  (function(){
+    // ===== Utils =====
+    function esc(s){ return String(s||"").replace(/[&<>\"']/g,function(m){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]; }); }
+    function parseDateTs(str,endOfDay){
+      if(!str) return null;
+      var y,m,d;
+      if(str.indexOf("-")>-1){ var p=str.split("-"); if(p.length!==3) return null; y=+p[0]; m=+p[1]-1; d=+p[2]; }
+      else if(str.indexOf("/")>-1){ var p2=str.split("/"); if(p2.length!==3) return null; d=+p2[0]; m=+p2[1]-1; y=+p2[2]; }
+      else return null;
+      return new Date(y,m,d, endOfDay?23:0, endOfDay?59:0, endOfDay?59:0, endOfDay?999:0).getTime();
+    }
+
+    // ===== Estado =====
+    var LS_KEY="pixelup_crm_leads_v1";
+    var leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
+
+    function persist(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(leads)); }catch(e){} }
+
+    // ===== Render Lista =====
+    function renderList(){
+      var tbody=document.querySelector("#leadsTable tbody");
+      if(!tbody) return;
+      var q=(document.getElementById("search").value||"").toLowerCase();
+      var sTs=parseDateTs(document.getElementById("filterStart").value);
+      var eTs=parseDateTs(document.getElementById("filterEnd").value,true);
+
+      tbody.innerHTML="";
+      for(var i=0;i<leads.length;i++){
+        var l=leads[i];
+        var txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
+        var d=l.date?parseDateTs(l.date):l.updatedAt;
+        var inDate=(sTs==null||d>=sTs)&&(eTs==null||d<=eTs);
+        if(q && txt.indexOf(q)===-1) continue;
+        if(!inDate) continue;
+
+        var tr=document.createElement("tr");
+        tr.innerHTML=
+          "<td>"+esc(l.name)+"</td>"+
+          "<td>"+esc(l.email||"")+"</td>"+
+          "<td>"+esc(l.phone||"")+"</td>"+
+          "<td>"+esc(l.stage||"novo")+"</td>"+
+          "<td>"+esc(l.source||"")+"</td>"+
+          "<td>"+esc(l.date||"")+"</td>"+
+          "<td>"+new Date(l.updatedAt).toLocaleString()+"</td>";
+
+        var td=document.createElement("td"); td.className="actions-cell";
+        var btnDel=document.createElement("button"); btnDel.className="danger"; btnDel.textContent="Excluir";
+        btnDel.onclick=(function(id){ return function(){ leads=leads.filter(function(x){return x.id!==id;}); persist(); renderAll(); }; })(l.id);
+        td.appendChild(btnDel);
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+    }
+
+    // ===== Render Kanban =====
+    function renderKanban(){
+      var stages=["novo","qualificado","proposta","ganho","perdido"];
+      for(var i=0;i<stages.length;i++){
+        var stage=stages[i];
+        var body=document.getElementById("col-"+stage);
+        var count=document.getElementById("count-"+stage);
+        if(!body) continue;
+        body.innerHTML="";
+        var items=leads.filter(function(x){ return (x.stage||"novo")===stage; });
+        if(count) count.textContent=items.length;
+        for(var j=0;j<items.length;j++){
+          var l=items[j];
+          var c=document.createElement("div");
+          c.className="kcard";
+          c.setAttribute("draggable","true");
+          c.setAttribute("data-id", l.id);
+          c.innerHTML="<div class='name'>"+esc(l.name||"")+"</div><div class='meta'>"+esc(l.email||"")+"</div>";
+          body.appendChild(c);
         }
+      }
+      bindDnD();
+    }
+
+    function bindDnD(){
+      var cards=document.querySelectorAll(".kcard");
+      for(var i=0;i<cards.length;i++){
+        (function(card){
+          card.addEventListener("dragstart", function(e){
+            e.dataTransfer.setData("text/plain", card.getAttribute("data-id"));
+          });
+        })(cards[i]);
+      }
+      var cols=document.querySelectorAll(".kbody");
+      for(var j=0;j<cols.length;j++){
+        (function(col){
+          col.addEventListener("dragover", function(e){ e.preventDefault(); col.classList.add("kdrop"); });
+          col.addEventListener("dragleave", function(){ col.classList.remove("kdrop"); });
+          col.addEventListener("drop", function(e){
+            e.preventDefault(); col.classList.remove("kdrop");
+            var id=e.dataTransfer.getData("text/plain");
+            var l=null; for(var k=0;k<leads.length;k++){ if(leads[k].id==id){ l=leads[k]; break; } }
+            if(l){
+              var newStage=col.parentElement.getAttribute("data-stage");
+              if(l.stage!==newStage){
+                l.stage=newStage; l.updatedAt=Date.now();
+                persist(); renderAll();
+              }
+            }
+          });
+        })(cols[j]);
+      }
+    }
+
+    function renderAll(){ renderList(); renderKanban(); }
+
+    // ===== Form =====
+    var form=document.getElementById("leadForm");
+    if(form){
+      form.addEventListener("submit", function(e){
+        e.preventDefault();
+        var lead={
+          id: String(Date.now()),
+          name: document.getElementById("name").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          phone: document.getElementById("phone").value.trim(),
+          stage: document.getElementById("stage").value,
+          source: document.getElementById("source").value.trim(),
+          date: document.getElementById("date").value,
+          notes: document.getElementById("notes").value.trim(),
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        if(!lead.name){ alert("Informe ao menos o nome."); return; }
+        leads.push(lead); persist(); form.reset(); renderAll();
       });
-    });
-  }
+    }
 
-  function renderAll(){ renderList(); renderKanban(); }
+    // ===== Abas =====
+    var tabList=document.getElementById("tabList");
+    var tabKanban=document.getElementById("tabKanban");
+    var tableWrap=document.getElementById("tableWrap");
+    var kanbanEl=document.getElementById("kanban");
+    if(tabList && tabKanban && tableWrap && kanbanEl){
+      tabList.onclick=function(){
+        tabList.classList.add("active"); tabKanban.classList.remove("active");
+        tableWrap.style.display="block"; kanbanEl.classList.remove("visible");
+      };
+      tabKanban.onclick=function(){
+        tabKanban.classList.add("active"); tabList.classList.remove("active");
+        tableWrap.style.display="none"; kanbanEl.classList.add("visible");
+        renderKanban();
+      };
+    }
 
-  // ===== FORM =====
-  document.getElementById("leadForm").addEventListener("submit",e=>{
-    e.preventDefault();
-    var f=e.target;
-    leads.push({
-      id:Date.now().toString(),
-      name:f.name.value,
-      email:f.email.value,
-      phone:f.phone.value,
-      stage:f.stage.value,
-      source:f.source.value,
-      date:f.date.value,
-      notes:f.notes.value,
-      createdAt:Date.now(),
-      updatedAt:Date.now()
-    });
-    persist(); f.reset(); renderAll();
-  });
+    // ===== Filtros texto/data =====
+    var search=document.getElementById("search");
+    var fS=document.getElementById("filterStart");
+    var fE=document.getElementById("filterEnd");
+    function hook(el){ if(!el) return; el.addEventListener("input", renderList); el.addEventListener("change", renderList); }
+    hook(search); hook(fS); hook(fE);
 
-  // ===== TAB SWITCH =====
-  var tabList=document.getElementById("tabList");
-  var tabKanban=document.getElementById("tabKanban");
-  var tableWrap=document.getElementById("tableWrap");
-  var kanbanEl=document.getElementById("kanban");
-
-  tabList.onclick=()=>{
-    tabList.classList.add("active");
-    tabKanban.classList.remove("active");
-    tableWrap.style.display="block";
-    kanbanEl.classList.remove("visible");
-  };
-  tabKanban.onclick=()=>{
-    tabKanban.classList.add("active");
-    tabList.classList.remove("active");
-    tableWrap.style.display="none";
-    kanbanEl.classList.add("visible"); // agora aplica a classe certa
-    renderKanban();
-  };
-
-  // ===== INIT =====
-  renderAll();
-})();
-</script>
+    // Start
+    renderAll();
+  })();
+  </script>
+</body>
+</html>
