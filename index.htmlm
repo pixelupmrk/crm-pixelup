@@ -1,3 +1,10 @@
+function formatPhoneToWa(num){
+  // tira tudo que não é dígito
+  var d = String(num||"").replace(/\D/g,"");
+  // se for BR e faltou o 55, tenta prefixar
+  if(d.length>=10 && d.length<=12 && !d.startsWith("55")) d = "55"+d;
+  return "https://wa.me/"+d+"?text="+encodeURIComponent("Olá! Vi seu cadastro no CRM PixelUp 🙂");
+}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
