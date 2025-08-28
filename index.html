@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CRM PixelUp — Lista + Kanban</title>
+  <title>CRM PixelUp — Dashboard + Lista + Kanban</title>
   <style>
     *{box-sizing:border-box}
     body{
@@ -14,9 +14,11 @@
     .topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:rgba(11,21,32,.75);border-bottom:1px solid #102437;backdrop-filter:blur(4px)}
     .topbar h1{margin:0;font-size:20px;font-weight:700}
     .topbar h1 span{color:#2bb8ff;text-shadow:0 0 14px rgba(43,184,255,.65)}
+
     .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
     .card{background:rgba(13,27,41,.85);backdrop-filter:blur(2px);border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
     h2{margin:0 0 12px;font-size:18px}
+
     .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
     .form-grid textarea{grid-column:1/-1;min-height:80px}
     .form-grid button{grid-column:1/-1}
@@ -24,9 +26,11 @@
     input::placeholder,textarea::placeholder{color:#7fa8c3}
     .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
     .btn.ghost{background:transparent;border-color:#17324a;color:#cde9ff}
+
     .list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px;flex-wrap:wrap}
     .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .filter-dates{display:flex;gap:8px;align-items:center}
+
     .table-wrap{overflow-x:auto;border:1px solid #102437;border-radius:12px}
     table{width:100%;border-collapse:collapse}
     th{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap;background:#0b1520;position:sticky;top:0}
@@ -36,13 +40,17 @@
     .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
     a.quick{color:#9fd9ff;text-decoration:underline}
     a.quick:hover{text-decoration:none;opacity:.9}
+
     .qual-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #17324a;background:#0b1a27;color:#cde9ff}
     .q-quente{background:#3b0d0d;color:#ffd1d1;border-color:#5c1a1a}
     .q-morno{background:#3b2a0d;color:#ffe6b0;border-color:#6b4a12}
     .q-frio{ background:#0d264a;color:#d5e6ff;border-color:#123b70}
-    .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
+
+    .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px;flex-wrap:wrap}
     .view-switch .tab{background:#0f2132;border:1px solid #17324a;color:#cde9ff;padding:8px 12px;border-radius:10px;cursor:pointer}
     .view-switch .tab.active{background:#18a4ff;border-color:#18a4ff;color:#001727;font-weight:700}
+
+    /* Kanban */
     .kanban{display:none;gap:12px;align-items:flex-start}
     .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
     .kcol{background:rgba(13,27,41,.9);border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
@@ -50,11 +58,13 @@
     .khead .title{font-weight:700}
     .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px}
     .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
+
     .kcard{position:relative;background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab;overflow:hidden}
     .kcard:active{cursor:grabbing}
     .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
     .kcard .name{font-weight:600;margin-bottom:2px}
     .kcard .meta{opacity:.8}
+
     .kcol[data-stage="novo"]{border-color:#3b82f6}
     .kcol[data-stage="qualificado"]{border-color:#a855f7}
     .kcol[data-stage="proposta"]{border-color:#f59e0b}
@@ -66,11 +76,15 @@
     .kcol[data-stage="proposta"] .khead .title{color:#fbbf24}
     .kcol[data-stage="vendido"] .khead .title{color:#34d399}
     .kcol[data-stage="perdido"] .khead .title{color:#f87171}
+
     .wa-icon{position:absolute;top:6px;right:6px;z-index:50;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#25D366;border:1px solid #0b1a27;box-shadow:0 2px 4px rgba(0,0,0,.4);transition:all .2s}
     .wa-icon:hover{transform:scale(1.1)}
     .wa-icon svg{width:14px;height:14px;display:block;fill:#fff}
+
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
+
+    /* Modal */
     .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
     .modal-content{background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;width:100%;max-width:640px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
     .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
@@ -85,12 +99,28 @@
     .wa-block{margin-top:12px;border-top:1px solid #17324a;padding-top:10px;display:grid;gap:8px}
     .wa-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .wa-row select{min-width:200px}
+
+    /* Dashboard */
+    .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+    .kpi{background:#0f2132;border:1px solid #17324a;border-radius:12px;padding:12px}
+    .kpi .kpi-label{font-size:12px;opacity:.8;margin-bottom:6px}
+    .kpi .kpi-value{font-size:26px;font-weight:800}
+    .dash-panels{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .panel{background:#0f2132;border:1px solid #17324a;border-radius:12px;padding:12px}
+    .panel h3{margin:0 0 10px;font-size:16px}
+    .bar{background:#0b1520;border:1px solid #17324a;border-radius:999px;overflow:hidden;height:10px}
+    .bar > div{height:10px;background:#18a4ff}
+    .row{display:grid;grid-template-columns:140px 1fr 60px;gap:8px;align-items:center;margin:8px 0}
+    .mini-table{width:100%;border-collapse:collapse}
+    .mini-table th,.mini-table td{border-bottom:1px solid #102437;padding:8px;text-align:left;font-size:13px}
+    @media (max-width:900px){.dash-grid{grid-template-columns:1fr}.dash-panels{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <header class="topbar"><h1>CRM <span>PixelUp</span></h1></header>
 
   <main class="container">
+    <!-- Form -->
     <section class="card">
       <h2>Novo Lead</h2>
       <form id="leadForm" class="form-grid">
@@ -107,7 +137,6 @@
         <input id="owner" placeholder="Atendente (quem atende)" />
         <input id="source" placeholder="Origem" />
         <input id="date" type="date" />
-        <!-- Qualificação única com rótulos "Led ..." -->
         <select id="qualif">
           <option value="">Qualificação</option>
           <option value="quente">Led Quente</option>
@@ -119,6 +148,7 @@
       </form>
     </section>
 
+    <!-- Lista + Kanban + Dashboard -->
     <section class="card">
       <div class="list-header">
         <h2>Leads</h2>
@@ -141,10 +171,48 @@
       </div>
 
       <div class="view-switch">
+        <button id="tabDashboard" class="tab">Dashboard</button>
         <button id="tabList" class="tab active">Lista</button>
         <button id="tabKanban" class="tab">Kanban</button>
       </div>
 
+      <!-- DASHBOARD -->
+      <div id="dashboard" style="display:none">
+        <div class="dash-grid">
+          <div class="kpi">
+            <div class="kpi-label">Total de Leads</div>
+            <div class="kpi-value" id="kpiTotal">0</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Vendas (Vendido)</div>
+            <div class="kpi-value" id="kpiVendido">0</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Taxa de Conversão</div>
+            <div class="kpi-value" id="kpiConv">0%</div>
+          </div>
+        </div>
+
+        <div class="dash-panels">
+          <div class="panel">
+            <h3>Por Estágio</h3>
+            <div id="dashStages"></div>
+          </div>
+          <div class="panel">
+            <h3>Por Qualificação</h3>
+            <div id="dashQualif"></div>
+          </div>
+          <div class="panel" style="grid-column:1/-1">
+            <h3>Leads por Atendente</h3>
+            <table class="mini-table" id="dashOwners">
+              <thead><tr><th>Atendente</th><th>Total</th><th>Vendido</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA -->
       <div class="table-wrap" id="tableWrap">
         <table id="leadsTable">
           <thead>
@@ -157,6 +225,7 @@
         </table>
       </div>
 
+      <!-- KANBAN -->
       <div id="kanban" class="kanban">
         <div class="kcol" data-stage="novo"><div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div><div class="kbody" id="col-novo"></div></div>
         <div class="kcol" data-stage="qualificado"><div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div><div class="kbody" id="col-qualificado"></div></div>
@@ -173,28 +242,8 @@
     const WA_TPL_KEY="pixelup_crm_wa_template_v1";
     let waTemplate = localStorage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}) e gostaria de ajudar. Podemos falar?";
     let leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
-
-    // ===== MIGRAÇÃO (converte tags antigas em qualificação única) =====
-    let migrated=false;
-    for(const l of leads){
-      if(!l.qualif){
-        const tags=(l.tags||[]).map(t=>String(t).toLowerCase());
-        if(tags.some(t=>t.includes("quente"))) l.qualif="quente";
-        else if(tags.some(t=>t.includes("morno"))) l.qualif="morno";
-        else if(tags.some(t=>t.includes("frio"))) l.qualif="frio";
-        else if(typeof l.qualificacao==="string"){ // caso tenha campo antigo
-          const q=l.qualificacao.toLowerCase();
-          if(q.includes("quente")) l.qualif="quente";
-          else if(q.includes("morno")) l.qualif="morno";
-          else if(q.includes("frio")) l.qualif="frio";
-        }
-        if(l.qualif) migrated=true;
-      }
-    }
-    if(migrated) localStorage.setItem(LS_KEY, JSON.stringify(leads));
     const persist=()=>localStorage.setItem(LS_KEY, JSON.stringify(leads));
 
-    // helpers
     const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;","\">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
@@ -227,12 +276,14 @@
     const fEnd=document.getElementById("filterEnd");
     const exportBtn=document.getElementById("exportCsv");
     const btnTemplate=document.getElementById("btnTemplate");
+    const tabDashboard=document.getElementById("tabDashboard");
     const tabList=document.getElementById("tabList");
     const tabKanban=document.getElementById("tabKanban");
+    const dashboard=document.getElementById("dashboard");
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    // ===== MODAL =====
+    /* ===== MODAL (igual à versão anterior) ===== */
     function showLeadDetails(lead){
       const wa = digits(lead.phone||"");
       const waLink = wa ? `<a class="quick" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '-';
@@ -307,7 +358,6 @@
           </form>
         </div>`;
 
-      // WhatsApp helpers
       const waText = modal.querySelector("#waText");
       const preset = modal.querySelector("#waPreset");
       const useDefault = modal.querySelector("#useDefault");
@@ -321,16 +371,10 @@
 
       function fillDefault(){ waText.value = buildMessage(waTemplate, lead); }
       fillDefault();
-
-      preset.addEventListener("change", ()=>{
-        const k = preset.value;
-        if(!k){ waText.value = ""; return; }
-        waText.value = buildMessage(quicks[k], lead);
-      });
-      useDefault.addEventListener("click", ()=> fillDefault());
+      preset.addEventListener("change", ()=>{ const k=preset.value; waText.value = k?buildMessage(quicks[k], lead):""; });
+      useDefault.addEventListener("click", fillDefault);
       openWa.addEventListener("click", ()=>{
-        const num = digits(lead.phone||"");
-        if(!num){ alert("Este lead não tem WhatsApp válido."); return; }
+        const num = digits(lead.phone||""); if(!num){ alert("Este lead não tem WhatsApp válido."); return; }
         const text = encodeURIComponent(waText.value || buildMessage(waTemplate, lead));
         window.open(`https://wa.me/${num}?text=${text}`, "_blank");
       });
@@ -343,40 +387,42 @@
       // edição
       const details = modal.querySelector("#detailsView");
       const formE = modal.querySelector("#editForm");
-      const editBtn = modal.querySelector("#editBtn");
-      const fillEdit = () => {
-        modal.querySelector("#e_name").value  = lead.name||"";
-        modal.querySelector("#e_email").value = lead.email||"";
-        modal.querySelector("#e_phone").value = lead.phone||"";
-        modal.querySelector("#e_owner").value = lead.owner||"";
-        modal.querySelector("#e_stage").value = lead.stage||"novo";
-        modal.querySelector("#e_source").value= lead.source||"";
-        modal.querySelector("#e_date").value  = lead.date||"";
-        modal.querySelector("#e_qualif").value= lead.qualif||"";
-        modal.querySelector("#e_notes").value = lead.notes||"";
-      };
-      editBtn.addEventListener("click", ()=>{ fillEdit(); details.style.display="none"; formE.style.display="grid"; });
-      modal.querySelector("#cancelEdit").addEventListener("click", ()=>{ formE.reset(); formE.style.display="none"; details.style.display="grid"; });
+      modal.querySelector("#editBtn").addEventListener("click", ()=>{
+        formE.querySelector("#e_name").value  = lead.name||"";
+        formE.querySelector("#e_email").value = lead.email||"";
+        formE.querySelector("#e_phone").value = lead.phone||"";
+        formE.querySelector("#e_owner").value = lead.owner||"";
+        formE.querySelector("#e_stage").value = lead.stage||"novo";
+        formE.querySelector("#e_source").value= lead.source||"";
+        formE.querySelector("#e_date").value  = lead.date||"";
+        formE.querySelector("#e_qualif").value= lead.qualif||"";
+        formE.querySelector("#e_notes").value = lead.notes||"";
+        details.style.display="none"; formE.style.display="grid";
+      });
+      formE.querySelector("#cancelEdit").addEventListener("click", ()=>{
+        formE.reset(); formE.style.display="none"; details.style.display="grid";
+      });
       formE.addEventListener("submit",(ev)=>{
         ev.preventDefault();
-        lead.name   = modal.querySelector("#e_name").value.trim();
-        lead.email  = modal.querySelector("#e_email").value.trim();
-        lead.phone  = modal.querySelector("#e_phone").value.trim();
-        lead.owner  = modal.querySelector("#e_owner").value.trim();
-        lead.stage  = modal.querySelector("#e_stage").value;
-        lead.source = modal.querySelector("#e_source").value.trim();
-        lead.date   = modal.querySelector("#e_date").value;
-        lead.qualif = modal.querySelector("#e_qualif").value;
-        lead.notes  = modal.querySelector("#e_notes").value.trim();
+        lead.name   = formE.querySelector("#e_name").value.trim();
+        lead.email  = formE.querySelector("#e_email").value.trim();
+        lead.phone  = formE.querySelector("#e_phone").value.trim();
+        lead.owner  = formE.querySelector("#e_owner").value.trim();
+        lead.stage  = formE.querySelector("#e_stage").value;
+        lead.source = formE.querySelector("#e_source").value.trim();
+        lead.date   = formE.querySelector("#e_date").value;
+        lead.qualif = formE.querySelector("#e_qualif").value;
+        lead.notes  = formE.querySelector("#e_notes").value.trim();
         lead.updatedAt = Date.now();
-        persist(); close(); renderAll();
+        persist(); modal.remove(); renderAll();
       });
 
       document.body.appendChild(modal);
     }
 
-    // ===== LISTA =====
+    /* ===== LISTA ===== */
     function renderList(){
+      const tbody=document.querySelector("#leadsTable tbody");
       tbody.innerHTML="";
       const q=(search?.value||"").toLowerCase();
       const ownerFilter=fOwner?.value||"";
@@ -417,7 +463,6 @@
         td.appendChild(del); tr.appendChild(td);
         tbody.appendChild(tr);
       }
-
       populateOwnerFilter();
     }
 
@@ -437,7 +482,7 @@
     fOwner.addEventListener("change", renderList);
     fQualif.addEventListener("change", renderList);
 
-    // ===== KANBAN =====
+    /* ===== KANBAN ===== */
     const STAGES=["novo","qualificado","proposta","vendido","perdido"];
     function renderKanban(){
       for(const stage of STAGES){
@@ -489,9 +534,80 @@
       });
     }
 
-    function renderAll(){renderList();renderKanban();}
+    /* ===== DASHBOARD ===== */
+    function computeStats(){
+      const total = leads.length;
+      const vendidos = leads.filter(l=>l.stage==="vendido").length;
+      const conv = total? Math.round((vendidos/total)*100) : 0;
 
-    // ===== EXPORT CSV =====
+      const byStage = {novo:0, qualificado:0, proposta:0, vendido:0, perdido:0};
+      leads.forEach(l=>{ byStage[l.stage||"novo"] = (byStage[l.stage||"novo"]||0)+1; });
+
+      const byQualif = {quente:0, morno:0, frio:0, vazio:0};
+      leads.forEach(l=>{
+        if(!l.qualif) byQualif.vazio++;
+        else byQualif[l.qualif] = (byQualif[l.qualif]||0)+1;
+      });
+
+      const byOwner = {};
+      leads.forEach(l=>{
+        const o = l.owner||"(sem atendente)";
+        if(!byOwner[o]) byOwner[o] = {total:0, vendido:0};
+        byOwner[o].total++;
+        if(l.stage==="vendido") byOwner[o].vendido++;
+      });
+
+      return {total, vendidos, conv, byStage, byQualif, byOwner};
+    }
+
+    function pct(part, whole){ return whole? Math.round((part/whole)*100) : 0; }
+
+    function renderDashboard(){
+      const {total, vendidos, conv, byStage, byQualif, byOwner} = computeStats();
+
+      // KPIs
+      document.getElementById("kpiTotal").textContent = total;
+      document.getElementById("kpiVendido").textContent = vendidos;
+      document.getElementById("kpiConv").textContent = conv + "%";
+
+      // Stages
+      const ds = document.getElementById("dashStages"); ds.innerHTML="";
+      const orderS = [
+        ["Novo","novo"],["Qualificado","qualificado"],["Proposta","proposta"],["Vendido","vendido"],["Perdido","perdido"]
+      ];
+      orderS.forEach(([label,key])=>{
+        const v = byStage[key]||0;
+        const row = document.createElement("div"); row.className="row";
+        row.innerHTML = `<div>${label}</div>
+                         <div class="bar"><div style="width:${pct(v,total)}%"></div></div>
+                         <div style="text-align:right">${v}</div>`;
+        ds.appendChild(row);
+      });
+
+      // Qualificação
+      const dq = document.getElementById("dashQualif"); dq.innerHTML="";
+      const orderQ = [
+        ["Led Quente","quente"],["Led Morno","morno"],["Led Frio","frio"],["(Sem)","vazio"]
+      ];
+      orderQ.forEach(([label,key])=>{
+        const v = byQualif[key]||0;
+        const row = document.createElement("div"); row.className="row";
+        row.innerHTML = `<div>${label}</div>
+                         <div class="bar"><div style="width:${pct(v,total)}%"></div></div>
+                         <div style="text-align:right">${v}</div>`;
+        dq.appendChild(row);
+      });
+
+      // Owners
+      const tb = document.querySelector("#dashOwners tbody"); tb.innerHTML="";
+      Object.entries(byOwner).sort((a,b)=>b[1].total-a[1].total).forEach(([owner,vals])=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML = `<td>${esc(owner)}</td><td>${vals.total}</td><td>${vals.vendido}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    /* ===== EXPORT CSV ===== */
     function toCsvRow(arr){return arr.map(v=>('"'+String(v??"").replace(/"/g,'""')+'"')).join(",");}
     function downloadCsv(filename, csv){
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
@@ -529,7 +645,7 @@
       downloadCsv(`leads_pixelup_${new Date().toISOString().slice(0,10)}.csv`, csv);
     });
 
-    // ===== FORM =====
+    /* ===== FORM ===== */
     if(form){
       form.addEventListener("submit", e=>{
         e.preventDefault();
@@ -545,11 +661,11 @@
           notes:document.getElementById("notes").value.trim(),
           createdAt:Date.now(),updatedAt:Date.now()};
         if(!lead.name){alert("Informe o nome");return;}
-        leads.push(lead); persist(); form.reset(); renderAll();
+        leads.push(lead);persist();form.reset();renderAll();
       });
     }
 
-    // ===== TEMPLATE PADRÃO =====
+    /* ===== TEMPLATE PADRÃO ===== */
     btnTemplate.addEventListener("click", ()=>{
       const novo = prompt(
         "Edite o texto padrão do WhatsApp.\nPlaceholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}",
@@ -562,11 +678,13 @@
       }
     });
 
-    // ===== ABAS =====
-    tabList.onclick=()=>{tabList.classList.add("active");tabKanban.classList.remove("active");tableWrap.style.display="block";kanbanEl.classList.remove("visible");};
-    tabKanban.onclick=()=>{tabKanban.classList.add("active");tabList.classList.remove("active");tableWrap.style.display="none";kanbanEl.classList.add("visible");renderKanban();};
+    /* ===== ABAS ===== */
+    tabDashboard.onclick=()=>{tabDashboard.classList.add("active");tabList.classList.remove("active");tabKanban.classList.remove("active");dashboard.style.display="block";tableWrap.style.display="none";kanbanEl.style.display="none";renderDashboard();};
+    tabList.onclick=()=>{tabList.classList.add("active");tabDashboard.classList.remove("active");tabKanban.classList.remove("active");tableWrap.style.display="block";dashboard.style.display="none";kanbanEl.style.display="none";};
+    tabKanban.onclick=()=>{tabKanban.classList.add("active");tabList.classList.remove("active");tabDashboard.classList.remove("active");kanbanEl.style.display="grid";dashboard.style.display="none";tableWrap.style.display="none";renderKanban();};
 
-    [search,fOwner,fQualif,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",renderList));
+    [search,fOwner,fQualif,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",()=>{renderList(); renderDashboard();}));
+    function renderAll(){renderList();renderKanban();renderDashboard();}
     renderAll();
   });
   </script>
