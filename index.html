@@ -99,9 +99,21 @@
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
 
-    /* Modal */
-    .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
-    .modal-content{background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;width:100%;max-width:640px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+    /* ===== Modal (fix centrado + scroll lock) ===== */
+    .modal{
+      position:fixed; inset:0;
+      display:grid; place-items:center;
+      padding:16px; z-index:9999;
+      background:rgba(0,0,0,.6);
+    }
+    .modal-content{
+      background:#0f2132;color:#eaf6ff;border:1px solid #17324a;
+      border-radius:14px;width:100%;max-width:640px;
+      max-height:90vh; overflow:auto;
+      padding:18px; box-shadow:0 10px 40px rgba(0,0,0,.5)
+    }
+    body.modal-open{ overflow:hidden; }
+
     .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
     .modal-header h3{margin:0;font-size:18px}
     .modal-actions{display:flex;gap:8px}
@@ -436,7 +448,10 @@
         window.open(`https://wa.me/${num}?text=${text}`, "_blank");
       });
 
-      const close = () => modal.remove();
+      const close = () => {
+        document.body.classList.remove('modal-open');
+        modal.remove();
+      };
       modal.addEventListener("click", e=>{ if(e.target===modal) close(); });
       modal.querySelector("#closeModalBtn").addEventListener("click", close);
       document.addEventListener("keydown", function escKey(ev){ if(ev.key==="Escape"){ close(); document.removeEventListener("keydown", escKey);} });
@@ -472,9 +487,11 @@
         lead.notes  = formE.querySelector("#e_notes").value.trim();
         lead.updatedAt = Date.now();
         if(persist()){ setStatus("Alterações salvas ✅", "ok"); }
-        modal.remove(); renderAll();
+        close(); // fecha modal com unlock do scroll
+        renderAll();
       });
 
+      document.body.classList.add('modal-open');   // bloqueia scroll do fundo
       document.body.appendChild(modal);
     }
 
@@ -545,7 +562,6 @@
 
     function openEditForLead(lead){
       showLeadDetails(lead);
-      // tenta abrir o modo editar logo em seguida (dupla garantia)
       setTimeout(()=>{ 
         const btn=document.querySelector('.modal #editBtn');
         if(btn){ btn.click(); }
@@ -564,7 +580,7 @@
         for(const l of items){
           const card=document.createElement("div");
           card.className="kcard";
-          card.draggable=true;       // drag só via handle (ver listener de dragstart)
+          card.draggable=true;       // drag só via handle
           card.dataset.id=l.id;
           card.tabIndex=0;
 
@@ -609,7 +625,7 @@
             if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase()==="e"){ ev.preventDefault(); openEditForLead(l); }
           });
 
-          // drag só se o usuário iniciar o gesto no handle:
+          // drag só se o gesto iniciar no handle:
           card.addEventListener("dragstart", e=>{
             if(!e.target.closest(".drag-handle")){ e.preventDefault(); return; }
             e.dataTransfer.setData("text/plain", card.dataset.id);
