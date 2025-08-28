@@ -11,7 +11,7 @@
       font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
       background:
         linear-gradient(rgba(8,12,18,.82), rgba(8,12,18,.82)),
-        url('pixelup-bg.jpg') center/cover fixed no-repeat;
+        url('pixelup.jpg') center/cover fixed no-repeat;
       color:#eaf6ff;
     }
     .topbar{
@@ -49,7 +49,6 @@
     tr:hover{background:#0f1d2b}
     tr.clickable{cursor:pointer}
     .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
-    /* links rápidos */
     a.quick{color:#9fd9ff;text-decoration:underline}
     a.quick:hover{text-decoration:none;opacity:.9}
 
@@ -68,7 +67,10 @@
     .khead .title{font-weight:700}
     .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px}
     .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
-    .kcard{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab}
+    .kcard{
+      position:relative;
+      background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab
+    }
     .kcard:active{cursor:grabbing}
     .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
 
@@ -84,6 +86,17 @@
     .kcol[data-stage="proposta"] .khead .title{color:#fbbf24}
     .kcol[data-stage="vendido"] .khead .title{color:#34d399}
     .kcol[data-stage="perdido"] .khead .title{color:#f87171}
+
+    /* Ícone WhatsApp no card */
+    .wa-icon{
+      position:absolute;top:8px;right:8px;
+      display:inline-flex;align-items:center;justify-content:center;
+      width:28px;height:28px;border-radius:999px;
+      background:#0b1a27;border:1px solid #17324a;
+      opacity:.9
+    }
+    .wa-icon:hover{opacity:1;transform:translateY(-1px)}
+    .wa-icon svg{width:16px;height:16px;display:block}
 
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
@@ -212,7 +225,7 @@
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;"," >":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
 
@@ -356,11 +369,9 @@
         tbody.appendChild(tr);
       }
 
-      // Atualiza dropdown de atendentes
       populateOwnerFilter();
     }
 
-    /* clique na linha da LISTA abre modal */
     tbody.addEventListener("click", (e)=>{
       if(e.target.closest(".actions-cell")) return;
       const tr=e.target.closest("tr");
@@ -392,9 +403,22 @@
         for(const l of items){
           const card=document.createElement("div");
           card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
+
           const owner = l.owner ? `<div class="meta">Atendente: ${esc(l.owner)}</div>` : "";
-          card.innerHTML=`<div class="name">${esc(l.name||"")}</div>
-                          <div class="meta">${esc(l.email||"")}</div>${owner}`;
+          const wa = digits(l.phone||"");
+          const waIcon = wa ? `
+            <a class="wa-icon" href="https://wa.me/${wa}" target="_blank" rel="noopener" title="WhatsApp" onclick="event.stopPropagation()" aria-label="Abrir WhatsApp">
+              <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="16" cy="16" r="16" fill="#25D366"/>
+                <path d="M24 16.1c0 4.4-3.6 8-8.1 8-1.4 0-2.7-.3-3.8-.9l-4.2 1.1 1.1-4.1c-.7-1.2-1.1-2.6-1.1-4.1 0-4.4 3.6-8 8-8 4.5 0 8.1 3.6 8.1 8z" fill="#fff"/>
+                <path d="M20.7 18.5c-.1.3-.7.6-1 .7-.3.1-.6.1-1 0s-1.1-.4-1.9-.9c-.7-.5-1.4-1.2-1.6-1.5-.2-.3-.4-.6-.3-.9.1-.3.3-.5.5-.7.1-.2.2-.3.3-.5.1-.1.1-.3 0-.5s-.6-1.5-.8-2-.4-.5-.7-.5h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1.1 2.8 1.2 3c.1.2 2.2 3.4 5.4 4.6.8.4 1.5.6 2 .8.8.2 1.6.2 2.1.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.2.1-1.4-.2-.2-.6-.3-1-.5z" fill="#25D366"/>
+              </svg>
+            </a>` : "";
+
+          card.innerHTML=`${waIcon}
+                          <div class="name">${esc(l.name||"")}</div>
+                          <div class="meta">${esc(l.email||"")}</div>
+                          ${owner}`;
           card.addEventListener("click", ()=> showLeadDetails(l));
           body.appendChild(card);
         }
