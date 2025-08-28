@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CRM PixelUp — Produção</title>
+  <title>CRM PixelUp — Stable</title>
   <style>
     *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
     .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
@@ -31,29 +31,17 @@
     .footer{padding:20px;text-align:center;color:#86c8ea;opacity:.8}
     @media (max-width:800px){.form-grid{grid-template-columns:1fr}.filters{flex-direction:column;align-items:stretch}}
     .tag{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #17324a;background:#0f2132;color:#bfe6ff}
-    .tag-ganho{border-color:#27ae60;color:#8ff0b1}
-    .tag-perdido{border-color:#e74c3c;color:#ffaaaa}
-    .tag-proposta{border-color:#e2b93b;color:#ffe89b}
-    .tag-qualificado{border-color:#2bb8ff;color:#9fe0ff}
-    .tag-novo{border-color:#8e44ad;color:#dcb8ff}
     .warn{background:#2b1a00;border:1px solid #5a3b00;color:#ffd699;padding:10px;border-radius:10px;margin-bottom:12px;display:none}
   </style>
 </head>
 <body>
   <header class="topbar">
     <h1>CRM <span>PixelUp</span></h1>
-    <div class="actions">
-      <button id="exportCsvBtn" class="btn">Exportar CSV</button>
-      <label class="btn">
-        Importar JSON
-        <input id="importJsonInput" type="file" accept="application/json" hidden>
-      </label>
-    </div>
   </header>
 
   <main class="container">
     <section class="card">
-      <div id="lsWarning" class="warn">⚠️ Seu navegador bloqueou o localStorage (modo anônimo/extensões de privacidade). Os dados não serão salvos.</div>
+      <div id="lsWarning" class="warn">⚠️ Seu navegador bloqueou o armazenamento (modo anônimo/extensões). Dados salvos via cookie.</div>
       <h2>Novo Lead</h2>
       <form id="leadForm" class="form-grid">
         <input id="name" placeholder="Nome" required />
@@ -92,12 +80,12 @@
         <table id="leadsTable">
           <thead>
             <tr>
-              <th data-sort="name">Nome</th>
-              <th data-sort="email">E-mail</th>
-              <th data-sort="phone">WhatsApp</th>
-              <th data-sort="stage">Estágio</th>
-              <th data-sort="source">Origem</th>
-              <th data-sort="updatedAt">Atualizado</th>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>WhatsApp</th>
+              <th>Estágio</th>
+              <th>Origem</th>
+              <th>Atualizado</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -108,133 +96,95 @@
   </main>
 
   <footer class="footer">
-    <p>Feito com 💙 pela PixelUp — Demo localStorage (sem backend)</p>
+    <p>Feito com 💙 pela PixelUp — Demo localStorage (com fallback em cookie)</p>
   </footer>
 
   <script>
   (function(){
-    const LS_KEY = "pixelup_crm_leads_v1";
-    const $ = s => document.querySelector(s);
-    const $$ = s => document.querySelectorAll(s);
+    var LS_KEY = "pixelup_crm_leads_v1";
+    var form = document.getElementById("leadForm");
+    var tbody = document.querySelector("#leadsTable tbody");
+    var search = document.getElementById("search");
+    var filterStage = document.getElementById("filterStage");
+    var lsWarning = document.getElementById("lsWarning");
 
-    const form = $("#leadForm");
-    const tbody = $("#leadsTable tbody");
-    const search = $("#search");
-    const filterStage = $("#filterStage");
-    const exportCsvBtn = $("#exportCsvBtn");
-    const importJsonInput = $("#importJsonInput");
-    const lsWarning = $("#lsWarning");
+    // Detecta se localStorage funciona
+    var storageMode = "localStorage";
+    try { localStorage.setItem("__t__","1"); localStorage.removeItem("__t__"); }
+    catch(e){ storageMode = "cookie"; lsWarning.style.display="block"; }
 
-    // Teste seguro do localStorage
-    let lsOk = true;
-    try { localStorage.setItem("__t__", "1"); localStorage.removeItem("__t__"); }
-    catch(e){ lsOk = false; lsWarning.style.display = "block"; }
+    function saveBlob(key, val){
+      if(storageMode==="localStorage"){
+        try{ localStorage.setItem(key, val); }catch(e){}
+      }else{
+        var v = encodeURIComponent(val);
+        document.cookie = key+"="+v+"; path=/; max-age=31536000; samesite=lax";
+      }
+    }
+    function loadBlob(key){
+      if(storageMode==="localStorage"){
+        try{ return localStorage.getItem(key); }catch(e){ return null; }
+      }else{
+        var m = document.cookie.match(new RegExp('(?:^|; )'+key+'=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : null;
+      }
+    }
 
-    let leads = load();
-    let sortKey = "updatedAt";
-    let sortDir = "desc";
+    var leads;
+    try { leads = JSON.parse(loadBlob(LS_KEY) || "[]"); } catch(e){ leads = []; }
 
-    render();
+    function esc(s){
+      return String(s||"").replace(/[&<>\"']/g, function(m){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]; });
+    }
 
-    form.addEventListener("submit", (e)=>{
+    function render(){
+      var q = (search?.value||"").toLowerCase();
+      var stage = filterStage?.value||"";
+      var filtered = leads.filter(function(l){
+        return (!stage || l.stage===stage) && (
+          (l.name||"").toLowerCase().includes(q) ||
+          (l.email||"").toLowerCase().includes(q) ||
+          (l.phone||"").toLowerCase().includes(q) ||
+          (l.source||"").toLowerCase().includes(q) ||
+          (l.notes||"").toLowerCase().includes(q)
+        );
+      });
+      tbody.innerHTML="";
+      filtered.forEach(function(l){
+        var tr=document.createElement("tr");
+        tr.innerHTML="<td>"+esc(l.name)+"</td>"+
+                     "<td>"+esc(l.email||"")+"</td>"+
+                     "<td>"+esc(l.phone||"")+"</td>"+
+                     "<td>"+esc(l.stage||"novo")+"</td>"+
+                     "<td>"+esc(l.source||"")+"</td>"+
+                     "<td>"+new Date(l.updatedAt).toLocaleString()+"</td>"+
+                     "<td class='actions-cell'><button onclick=''>Editar</button><button class='danger' onclick=''>Excluir</button></td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    function persist(){ saveBlob(LS_KEY, JSON.stringify(leads)); }
+
+    form.addEventListener("submit", function(e){
       e.preventDefault();
-      const lead = {
-        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + Math.random()),
-        name: $("#name").value.trim(),
-        email: $("#email").value.trim(),
-        phone: $("#phone").value.trim(),
-        stage: $("#stage").value,
-        source: $("#source").value.trim(),
-        notes: $("#notes").value.trim(),
-        createdAt: Date.now(),
+      var lead = {
+        id: Date.now(),
+        name: document.getElementById("name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        stage: document.getElementById("stage").value,
+        source: document.getElementById("source").value.trim(),
+        notes: document.getElementById("notes").value.trim(),
         updatedAt: Date.now()
       };
       if(!lead.name){ alert("Informe ao menos o nome."); return; }
-      leads.push(lead);
-      save(); form.reset(); render();
+      leads.push(lead); persist(); form.reset(); render();
     });
 
     search.addEventListener("input", render);
     filterStage.addEventListener("change", render);
 
-    $$("#leadsTable th[data-sort]").forEach(th=>{
-      th.style.cursor = "pointer";
-      th.addEventListener("click", ()=>{
-        const key = th.getAttribute("data-sort");
-        if(sortKey === key){ sortDir = sortDir === "asc" ? "desc" : "asc"; }
-        else { sortKey = key; sortDir = "asc"; }
-        render();
-      });
-    });
-
-    function render(){
-      const q = (search.value || "").toLowerCase();
-      const stage = filterStage.value;
-      const filtered = leads
-        .filter(l => (!stage || l.stage===stage))
-        .filter(l => (
-          (l.name||'').toLowerCase().includes(q) ||
-          (l.email||'').toLowerCase().includes(q) ||
-          (l.phone||'').toLowerCase().includes(q) ||
-          (l.source||"").toLowerCase().includes(q) ||
-          (l.notes||"").toLowerCase().includes(q)
-        ))
-        .sort((a,b)=>{
-          const A = a[sortKey] ?? "";
-          const B = b[sortKey] ?? "";
-          if(A < B) return sortDir==="asc" ? -1 : 1;
-          if(A > B) return sortDir==="asc" ? 1 : -1;
-          return 0;
-        });
-
-      tbody.innerHTML = "";
-      for(const l of filtered){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${escape(l.name||"")}</td>
-          <td>${escape(l.email||"")}</td>
-          <td>${escape(l.phone||"")}</td>
-          <td><span class="tag tag-${escape(l.stage||"novo")}">${escape(l.stage||"novo")}</span></td>
-          <td>${escape(l.source||"")}</td>
-          <td>${new Date(l.updatedAt).toLocaleString()}</td>
-          <td class="actions-cell">
-            <button data-edit="${l.id}">Editar</button>
-            <button class="danger" data-del="${l.id}">Excluir</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      }
-
-      tbody.querySelectorAll("button[data-edit]").forEach(btn=>{
-        btn.addEventListener("click", ()=> editLead(btn.getAttribute("data-edit")));
-      });
-      tbody.querySelectorAll("button[data-del]").forEach(btn=>{
-        btn.addEventListener("click", ()=> deleteLead(btn.getAttribute("data-del")));
-      });
-    }
-
-    function editLead(id){
-      const l = leads.find(x=>x.id===id);
-      if(!l) return;
-      const name = prompt("Nome:", l.name); if(name===null) return;
-      const email = prompt("E-mail:", l.email||""); if(email===null) return;
-      const phone = prompt("WhatsApp:", l.phone||""); if(phone===null) return;
-      const stage = prompt("Estágio (novo, qualificado, proposta, ganho, perdido):", l.stage)||l.stage;
-      const source = prompt("Origem:", l.source||""); if(source===null) return;
-      const notes = prompt("Notas:", l.notes||""); if(notes===null) return;
-      Object.assign(l, {name,email,phone,stage,source,notes, updatedAt: Date.now()});
-      save(); render();
-    }
-
-    function deleteLead(id){
-      if(!confirm("Excluir este lead?")) return;
-      leads = leads.filter(l=>l.id!==id);
-      save(); render();
-    }
-
-    function save(){ if(!lsOk) return; try{ localStorage.setItem(LS_KEY, JSON.stringify(leads)); }catch(e){} }
-    function load(){ if(!lsOk) return []; try{ return JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ return []; } }
-    function escape(str=""){ return str.replace(/[&<>\"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[m])); }
+    render();
   })();
   </script>
 </body>
