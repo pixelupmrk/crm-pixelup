@@ -9,42 +9,31 @@
     body{
       margin:0;
       font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-
-      /* fundo imagem + overlay escuro */
       background:
         linear-gradient(rgba(8,12,18,.82), rgba(8,12,18,.82)),
         url('pixelup-bg.jpg') center/cover fixed no-repeat;
-
       color:#eaf6ff;
     }
     .topbar{
-      position:sticky;top:0;
+      position:sticky;top:0;z-index:10;
       display:flex;justify-content:space-between;align-items:center;
-      padding:14px 20px;
-      background:rgba(11,21,32,.75);
-      border-bottom:1px solid #102437;
-      backdrop-filter:blur(4px);
-      z-index: 10;
+      padding:14px 20px;background:rgba(11,21,32,.75);
+      border-bottom:1px solid #102437;backdrop-filter:blur(4px);
     }
     .topbar h1{margin:0;font-size:20px;font-weight:700}
     .topbar h1 span{color:#2bb8ff;text-shadow:0 0 14px rgba(43,184,255,.65)}
 
     .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
     .card{
-      background:rgba(13,27,41,.85);
-      border:1px solid #102437;border-radius:14px;
-      padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);
-      backdrop-filter:blur(2px);
+      background:rgba(13,27,41,.85);backdrop-filter:blur(2px);
+      border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);
     }
     h2{margin:0 0 12px;font-size:18px}
 
     .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
     .form-grid textarea{grid-column:1/-1;min-height:80px}
     .form-grid button{grid-column:1/-1}
-    input,select,textarea{
-      background:#0f2132;border:1px solid #17324a;border-radius:10px;
-      padding:10px 12px;color:#d9f1ff;outline:none
-    }
+    input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
     input::placeholder,textarea::placeholder{color:#7fa8c3}
     .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
 
@@ -57,7 +46,7 @@
     th{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap;background:#0b1520;position:sticky;top:0}
     td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:normal;word-break:break-word}
     tr:hover{background:#0f1d2b}
-
+    tr.clickable{cursor:pointer}
     .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
 
     /* === KANBAN === */
@@ -81,17 +70,12 @@
 
     /* === MODAL DETALHES === */
     .modal{
-      position:fixed;inset:0;
-      background:rgba(0,0,0,.6);
-      display:flex;align-items:center;justify-content:center;
-      z-index:9999;
-      padding:16px;
+      position:fixed;inset:0;background:rgba(0,0,0,.6);
+      display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;
     }
     .modal-content{
-      background:#0f2132;color:#eaf6ff;
-      border:1px solid #17324a;border-radius:14px;
-      width:100%;max-width:520px;padding:18px;
-      box-shadow:0 10px 40px rgba(0,0,0,.5);
+      background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;
+      width:100%;max-width:520px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);
     }
     .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
     .modal-header h3{margin:0;font-size:18px}
@@ -201,25 +185,6 @@
     const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
 
-    /* ===== LISTA ===== */
-    function renderList(){
-      tbody.innerHTML="";
-      const q=(search?.value||"").toLowerCase();
-      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
-      for(const l of leads){
-        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
-        const d=l.date?parseDateTs(l.date):l.updatedAt;
-        if(q && !txt.includes(q)) continue;
-        if(sTs && d<sTs) continue; if(eTs && d>eTs) continue;
-        const tr=document.createElement("tr");
-        tr.innerHTML=`<td>${esc(l.name)}</td><td>${esc(l.email||"")}</td><td>${esc(l.phone||"")}</td><td>${esc(l.stage)}</td><td>${esc(l.source||"")}</td><td>${esc(l.date||"")}</td><td>${new Date(l.updatedAt).toLocaleString()}</td>`;
-        const td=document.createElement("td"); td.className="actions-cell";
-        const del=document.createElement("button"); del.textContent="Excluir";
-        del.onclick=()=>{leads=leads.filter(x=>x.id!==l.id);persist();renderAll();};
-        td.appendChild(del); tr.appendChild(td); tbody.appendChild(tr);
-      }
-    }
-
     /* ===== MODAL ===== */
     function showLeadDetails(lead){
       const modal=document.createElement("div");
@@ -249,6 +214,44 @@
       document.body.appendChild(modal);
     }
 
+    /* ===== LISTA ===== */
+    function renderList(){
+      tbody.innerHTML="";
+      const q=(search?.value||"").toLowerCase();
+      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
+      for(const l of leads){
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
+        const d=l.date?parseDateTs(l.date):l.updatedAt;
+        if(q && !txt.includes(q)) continue;
+        if(sTs && d<sTs) continue; if(eTs && d>eTs) continue;
+
+        const tr=document.createElement("tr");
+        tr.className="clickable";
+        tr.dataset.id=l.id;
+        tr.innerHTML=`<td>${esc(l.name)}</td>
+                      <td>${esc(l.email||"")}</td>
+                      <td>${esc(l.phone||"")}</td>
+                      <td>${esc(l.stage)}</td>
+                      <td>${esc(l.source||"")}</td>
+                      <td>${esc(l.date||"")}</td>
+                      <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
+        const td=document.createElement("td"); td.className="actions-cell";
+        const del=document.createElement("button"); del.textContent="Excluir";
+        del.addEventListener("click", (ev)=>{ ev.stopPropagation(); leads=leads.filter(x=>x.id!==l.id);persist();renderAll(); });
+        td.appendChild(del); tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+    }
+
+    /* clique na linha da LISTA abre modal */
+    tbody.addEventListener("click", (e)=>{
+      if(e.target.closest(".actions-cell")) return; // clicou em botão
+      const tr=e.target.closest("tr");
+      if(!tr) return;
+      const lead=leads.find(x=>x.id===tr.dataset.id);
+      if(lead) showLeadDetails(lead);
+    });
+
     /* ===== KANBAN ===== */
     function renderKanban(){
       const stages=["novo","qualificado","proposta","ganho","perdido"];
@@ -262,8 +265,7 @@
           const card=document.createElement("div");
           card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
           card.innerHTML=`<div class="name">${esc(l.name||"")}</div><div class="meta">${esc(l.email||"")}</div>`;
-          /* Abrir modal ao clicar */
-          card.addEventListener("click", ()=> showLeadDetails(l));
+          card.addEventListener("click", ()=> showLeadDetails(l));   // clique no card abre modal
           body.appendChild(card);
         }
       }
