@@ -49,6 +49,9 @@
     tr:hover{background:#0f1d2b}
     tr.clickable{cursor:pointer}
     .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
+    /* links rápidos */
+    a.quick{color:#9fd9ff;text-decoration:underline}
+    a.quick:hover{text-decoration:none;opacity:.9}
 
     /* === KANBAN === */
     .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
@@ -210,10 +213,15 @@
     const kanbanEl=document.getElementById("kanban");
 
     const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;"," >":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+    const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
 
     /* ===== MODAL ===== */
     function showLeadDetails(lead){
+      const wa = digits(lead.phone||"");
+      const waLink = wa ? `<a class="quick" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '-';
+      const mail = lead.email ? `<a class="quick" href="mailto:${encodeURIComponent(lead.email)}">Enviar e-mail</a>` : '-';
+
       const modal=document.createElement("div");
       modal.className="modal";
       modal.innerHTML=`
@@ -227,8 +235,8 @@
           </div>
           <div id="detailsView" class="dl">
             <b>Nome</b> <div>${esc(lead.name)}</div>
-            <b>E-mail</b> <div>${esc(lead.email||"")}</div>
-            <b>WhatsApp</b> <div class="mono">${esc(lead.phone||"")}</div>
+            <b>E-mail</b> <div>${esc(lead.email||"")} &nbsp; ${mail}</div>
+            <b>WhatsApp</b> <div class="mono">${esc(lead.phone||"")} &nbsp; ${waLink}</div>
             <b>Atendente</b> <div>${esc(lead.owner||"")}</div>
             <b>Estágio</b> <div>${esc(lead.stage)}</div>
             <b>Origem</b> <div>${esc(lead.source||"")}</div>
@@ -328,9 +336,14 @@
         const tr=document.createElement("tr");
         tr.className="clickable";
         tr.dataset.id=l.id;
+
+        const mailCell = l.email ? `<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${esc(l.email)}</a>` : "";
+        const waDigits = digits(l.phone||"");
+        const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(l.phone)}</a>` : esc(l.phone||"");
+
         tr.innerHTML=`<td>${esc(l.name)}</td>
-                      <td>${esc(l.email||"")}</td>
-                      <td>${esc(l.phone||"")}</td>
+                      <td>${mailCell}</td>
+                      <td>${waCell}</td>
                       <td>${esc(l.owner||"")}</td>
                       <td>${esc(l.stage)}</td>
                       <td>${esc(l.source||"")}</td>
@@ -422,7 +435,6 @@
     exportBtn.addEventListener("click", ()=>{
       const headers = ["id","nome","email","whatsapp","atendente","estagio","origem","data","notas","criado_em","atualizado_em"];
       const rows = [headers];
-      // respeita filtro atual
       const ownerFilter=fOwner?.value||"";
       const q=(search?.value||"").toLowerCase();
       const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
