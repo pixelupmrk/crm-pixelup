@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CRM PixelUp — MVP + Datas</title>
+  <title>CRM PixelUp — MVP</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
     .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
     .topbar h1{margin:0;font-size:20px;font-weight:700}
     .topbar h1 span{color:#2bb8ff;text-shadow:0 0 12px rgba(43,184,255,.6)}
     .actions{display:flex;gap:10px;align-items:center}
-    .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:18px}
+    .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
     .card{background:#0d1b29;border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
-    h2{margin:0 0 12px 0;font-size:18px}
+    h2{margin:0 0 12px;font-size:18px}
     .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
     .form-grid textarea{grid-column:1/-1;min-height:80px}
     .form-grid button{grid-column:1/-1}
@@ -20,15 +21,15 @@
     input::placeholder,textarea::placeholder{color:#7fa8c3}
     .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
     .btn.secondary{background:#0f2132;color:#cde9ff;border-color:#17324a}
-    .list-header{display:flex;gap:12px;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-    .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .list-header{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
     .filter-dates{display:flex;gap:8px;align-items:center}
     .table-wrap{overflow:auto;border:1px solid #102437;border-radius:12px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap}
     th{background:#0b1520;position:sticky;top:0;cursor:pointer}
     tr:hover{background:#0f1d2b}
-    .actions-cell .btn, .actions-cell button, .actions-cell a{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer;text-decoration:none;display:inline-block}
+    .actions-cell a,.actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer;text-decoration:none}
     .actions-cell .danger{border-color:#ff4d4d;color:#ff7878}
     .footer{padding:20px;text-align:center;color:#86c8ea;opacity:.8}
     @media (max-width:900px){.form-grid{grid-template-columns:1fr}.filters{flex-direction:column;align-items:stretch}}
@@ -50,7 +51,7 @@
 
   <main class="container">
     <section class="card">
-      <div id="lsWarning" class="warn">⚠️ Seu navegador bloqueou o localStorage (modo anônimo/extensões). Ativado fallback via cookie.</div>
+      <div id="lsWarning" class="warn">⚠️ Navegador bloqueou localStorage. Usando cookies.</div>
       <h2>Novo Lead</h2>
       <form id="leadForm" class="form-grid">
         <input id="name" placeholder="Nome" required />
@@ -99,6 +100,7 @@
               <th data-sort="phone">WhatsApp</th>
               <th data-sort="stage">Estágio</th>
               <th data-sort="source">Origem</th>
+              <th data-sort="date">Data</th>
               <th data-sort="createdAt">Criado em</th>
               <th data-sort="updatedAt">Atualizado</th>
               <th>Ações</th>
@@ -111,491 +113,98 @@
   </main>
 
   <footer class="footer">
-    <p>Feito com 💙 pela PixelUp — MVP com Datas, WhatsApp, CSV e Import JSON</p>
+    <p>Feito com 💙 pela PixelUp — MVP completo</p>
   </footer>
 
   <script>
   (function(){
-    // ====== UTIL / STORAGE ======
+    // ===== STORAGE =====
     var LS_KEY = "pixelup_crm_leads_v1";
     var storageMode = "localStorage";
     try { localStorage.setItem("__t__","1"); localStorage.removeItem("__t__"); }
-    catch(e){ storageMode = "cookie"; var w=document.getElementById("lsWarning"); if(w) w.style.display="block"; }
+    catch(e){ storageMode = "cookie"; document.getElementById("lsWarning").style.display="block"; }
 
-    function saveBlob(key, value){
-      if(storageMode==="localStorage"){
-        try{ localStorage.setItem(key, value); }catch(e){}
-      } else {
-        document.cookie = key+"="+encodeURIComponent(value)+"; path=/; max-age=31536000; samesite=lax";
-      }
-    }
-    function loadBlob(key){
-      if(storageMode==="localStorage"){
-        try{ return localStorage.getItem(key); }catch(e){ return null; }
-      } else {
-        var m = document.cookie.match(new RegExp('(?:^|; )'+key+'=([^;]*)'));
-        return m ? decodeURIComponent(m[1]) : null;
-      }
-    }
+    function saveBlob(k,v){ if(storageMode==="localStorage"){ localStorage.setItem(k,v); } else { document.cookie=k+"="+encodeURIComponent(v)+";path=/;max-age=31536000"; } }
+    function loadBlob(k){ if(storageMode==="localStorage"){ return localStorage.getItem(k); } else { var m=document.cookie.match(new RegExp('(?:^|; )'+k+'=([^;]*)')); return m?decodeURIComponent(m[1]):null; } }
 
-    function escapeHtml(s){
-      return String(s||"").replace(/[&<>\"']/g,function(m){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])});
-    }
+    function esc(s){ return String(s||"").replace(/[&<>\"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+    function formatPhoneToWa(num){ var d=String(num||"").replace(/\D/g,""); if(d.length>=10&&d.length<=12&&!d.startsWith("55")) d="55"+d; return "https://wa.me/"+d+"?text="+encodeURIComponent("Olá! Vi seu cadastro no CRM PixelUp 🙂"); }
+    function parseDateTs(str,end){ if(!str) return null; var p=str.split("-"); if(p.length!==3) return null; var y=+p[0],m=+p[1]-1,d=+p[2]; return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime(); }
+    function formatDate(str,fb){ if(str){ var p=str.split("-"); if(p.length===3) return p[2]+"/"+p[1]+"/"+p[0]; } return new Date(fb||Date.now()).toLocaleString(); }
 
-    function toCSV(rows){
-      var headers = ["id","name","email","phone","stage","source","notes","date","createdAt","updatedAt"];
-      var out = [headers.join(",")];
-      rows.forEach(function(l){
-        var row = headers.map(function(h){
-          var v = l[h]==null ? "" : String(l[h]).replace(/"/g,'""');
-          return /[",\n]/.test(v) ? '"' + v + '"' : v;
-        });
-        out.push(row.join(","));
-      });
-      return out.join("\n");
-    }
-    function downloadFile(filename, content, mime){
-      var blob = new Blob([content], {type: mime||"text/plain"});
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url; a.download = filename; a.click();
-      URL.revokeObjectURL(url);
-    }
+    // ===== ESTADO =====
+    var leads; try{ leads=JSON.parse(loadBlob(LS_KEY)||"[]"); }catch(e){ leads=[]; }
+    var sortKey="updatedAt", sortDir="desc";
 
-    function formatPhoneToWa(num){
-      var d = String(num||"").replace(/\D/g,"");
-      if(d.length>=10 && d.length<=12 && d.indexOf("55")!==0) d = "55"+d; // tenta BR por padrão
-      return "https://wa.me/"+d+"?text="+encodeURIComponent("Olá! Vi seu cadastro no CRM PixelUp 🙂");
-    }
+    // ===== DOM =====
+    var form=document.getElementById("leadForm"), tbody=document.querySelector("#leadsTable tbody");
+    var search=document.getElementById("search"), filterStage=document.getElementById("filterStage");
+    var filterStart=document.getElementById("filterStart"), filterEnd=document.getElementById("filterEnd");
+    var exportBtn=document.getElementById("exportCsvBtn"), importInp=document.getElementById("importJsonInput");
 
-    // ====== ESTADO ======
-    var leads;
-    try { leads = JSON.parse(loadBlob(LS_KEY) || "[]"); } catch(e){ leads = []; }
-    var sortKey = "updatedAt";
-    var sortDir = "desc";
-
-    // ====== DOM ======
-    var form = document.getElementById("leadForm");
-    var tbody = document.querySelector("#leadsTable tbody");
-    var search = document.getElementById("search");
-    var filterStage = document.getElementById("filterStage");
-    var filterStart = document.getElementById("filterStart");
-    var filterEnd = document.getElementById("filterEnd");
-    var exportCsvBtn = document.getElementById("exportCsvBtn");
-    var importJsonInput = document.getElementById("importJsonInput");
-
-    // ====== RENDER ======
+    // ===== RENDER =====
     function render(){
-      var q = (search && search.value || "").toLowerCase();
-      var stage = (filterStage && filterStage.value) || "";
-      var startTs = parseDateToTs(filterStart && filterStart.value);
-      var endTs = parseDateToTs(filterEnd && filterEnd.value, true);
-
-      var filtered = leads.filter(function(l){
-        var okStage = (!stage || l.stage===stage);
-        var okText = (
-          (l.name||"").toLowerCase().includes(q) ||
-          (l.email||"").toLowerCase().includes(q) ||
-          (l.phone||"").toLowerCase().includes(q) ||
-          (l.source||"").toLowerCase().includes(q) ||
-          (l.notes||"").toLowerCase().includes(q)
-        );
-        var created = l.createdAt || Date.now();
-        // se o usuário preencheu o campo date no formulário, use-o para o filtro também
-        var customDateTs = l.date ? parseDateToTs(l.date) : null;
-        var dateToFilter = customDateTs || created;
-
-        var okStart = startTs==null || dateToFilter >= startTs;
-        var okEnd = endTs==null || dateToFilter <= endTs;
-
-        return okStage && okText && okStart && okEnd;
-      }).sort(function(a,b){
-        var A = a[sortKey] || 0;
-        var B = b[sortKey] || 0;
-        if(A<B) return sortDir==="asc" ? -1 : 1;
-        if(A>B) return sortDir==="asc" ? 1 : -1;
-        return 0;
-      });
-
-      tbody.innerHTML = "";
-      filtered.forEach(function(l){
-        var tr = document.createElement("tr");
-
-        function td(text){ var c=document.createElement("td"); c.innerHTML = escapeHtml(text); return c; }
-
-        tr.appendChild(td(l.name));
-        tr.appendChild(td(l.email||""));
-        tr.appendChild(td(l.phone||""));
-
-        var tdStage = document.createElement("td");
-        var span = document.createElement("span");
-        span.className = "tag";
-        span.textContent = l.stage || "novo";
-        tdStage.appendChild(span);
-        tr.appendChild(tdStage);
-
-        tr.appendChild(td(l.source||""));
-        tr.appendChild(td(formatDate(l.date, l.createdAt)));  // CRIADO EM
-        tr.appendChild(td(new Date(l.updatedAt||Date.now()).toLocaleString())); // ATUALIZADO
-
-        var tdAct = document.createElement("td");
-        tdAct.className = "actions-cell";
-
-        var aWa = document.createElement("a");
-        aWa.href = formatPhoneToWa(l.phone);
-        aWa.target = "_blank";
-        aWa.rel = "noreferrer";
-        aWa.textContent = "WhatsApp";
-        tdAct.appendChild(aWa);
-
-        var bEdit = document.createElement("button");
-        bEdit.textContent = "Editar";
-        bEdit.onclick = function(){ editLead(l.id); };
-        tdAct.appendChild(bEdit);
-
-        var bDel = document.createElement("button");
-        bDel.className = "danger";
-        bDel.textContent = "Excluir";
-        bDel.onclick = function(){ deleteLead(l.id); };
-        tdAct.appendChild(bDel);
-
-        tr.appendChild(tdAct);
-
-        tbody.appendChild(tr);
-      });
-    }
-
-    function persist(){ saveBlob(LS_KEY, JSON.stringify(leads)); }
-
-    // ====== FORM ======
-    form.addEventListener("submit", function(e){
-      e.preventDefault();
-      var rawDate = (document.getElementById("date").value || "").trim(); // yyyy-mm-dd
-      var lead = {
-        id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()+Math.random()),
-        name: document.getElementById("name").value.trim(),
-        email: document.getElementById("email").value.trim(),
-        phone: document.getElementById("phone").value.trim(),
-        stage: document.getElementById("stage").value,
-        source: document.getElementById("source").value.trim(),
-        notes: document.getElementById("notes").value.trim(),
-        date: rawDate || "",                // data escolhida pelo usuário (opcional)
-        createdAt: Date.now(),              // timestamp de criação
-        updatedAt: Date.now()               // timestamp de atualização
-      };
-      if(!lead.name){ alert("Informe ao menos o nome."); return; }
-      leads.push(lead); persist(); form.reset(); render();
-    });
-
-    // ====== EDIT/DEL ======
-    function editLead(id){
-      var l = leads.find(function(x){ return x.id===id; });
-      if(!l) return;
-      var name = prompt("Nome:", l.name); if(name===null) return;
-      var email = prompt("E-mail:", l.email||""); if(email===null) return;
-      var phone = prompt("WhatsApp:", l.phone||""); if(phone===null) return;
-      var stage = prompt("Estágio (novo, qualificado, proposta, ganho, perdido):", l.stage)||l.stage;
-      var source = prompt("Origem:", l.source||""); if(source===null) return;
-      var notes = prompt("Notas:", l.notes||""); if(notes===null) return;
-      var date = prompt("Data (yyyy-mm-dd):", l.date||"") || l.date || "";
-      l.name=name; l.email=email; l.phone=phone; l.stage=stage; l.source=source; l.notes=notes; l.date=date; l.updatedAt=Date.now();
-      persist(); render();
-    }
-    function deleteLead(id){
-      if(!confirm("Excluir este lead?")) return;
-      leads = leads.filter(function(x){ return x.id!==id; });
-      persist(); render();
-    }
-
-    // ====== SORT HEADERS ======
-    Array.prototype.forEach.call(document.querySelectorAll("th[data-sort]"), function(th){
-      th.addEventListener("click", function(){
-        var key = th.getAttribute("data-sort");
-        if(sortKey===key){ sortDir = (sortDir==="asc" ? "desc" : "asc"); }
-        else { sortKey = key; sortDir = "asc"; }
-        render();
-      });
-    });
-
-    // ====== EXPORT / IMPORT ======
-    if(exportCsvBtn){
-      exportCsvBtn.addEventListener("click", function(){
-        downloadFile("leads.csv", toCSV(leads), "text/csv;charset=utf-8;");
-      });
-    }
-    if(importJsonInput){
-      importJsonInput.addEventListener("change", function(e){
-        var file = e.target.files && e.target.files[0];
-        if(!file) return;
-        var reader = new FileReader();
-        reader.onload = function(){
-          try{
-            var arr = JSON.parse(reader.result);
-            if(Array.isArray(arr)){
-              var byId = {};
-              leads.forEach(function(l){ byId[l.id]=l; });
-              arr.forEach(function(n){ if(n && n.id!=null){ byId[n.id]=n; }});
-              leads = Object.values(byId);
-              persist(); render();
-              alert("Importado com sucesso!");
-            }else{
-              alert("JSON inválido (esperado array).");
-            }
-          }catch(err){
-            alert("Falha ao ler JSON: "+err.message);
-          }
-        };
-        reader.readAsText(file);
-      });
-    }
-
-    // ====== HELPERS DE DATA ======
-    function parseDateToTs(yyyy_mm_dd, endOfDay){
-      if(!yyyy_mm_dd) return null;
-      var p = yyyy_mm_dd.split("-");
-      if(p.length!==3) return null;
-      var y=+p[0], m=+p[1]-1, d=+p[2];
-      if(endOfDay) return new Date(y,m,d,23,59,59,999).getTime();
-      return new Date(y,m,d,0,0,0,0).getTime();
-    }
-    function formatDate(dateStr, fallbackTs){
-      if(dateStr){ // yyyy-mm-dd
-        var p = dateStr.split("-");
-        if(p.length===3){ return [p[2], p[1], p[0]].join("/"); }
-      }
-      return new Date(fallbackTs||Date.now()).toLocaleString();
-    }
-
-    // ====== START ======
-    ["input","change"].forEach(function(evt){
-      if(search) search.addEventListener(evt, render);
-      if(filterStage) filterStage.addEventListener(evt, render);
-      if(filterStart) filterStart.addEventListener(evt, render);
-      if(filterEnd) filterEnd.addEventListener(evt, render);
-    });
-    render();
-  })();
-  </script>
-</body>
-</html>
-function formatPhoneToWa(num){
-  // tira tudo que não é dígito
-  var d = String(num||"").replace(/\D/g,"");
-  // se for BR e faltou o 55, tenta prefixar
-  if(d.length>=10 && d.length<=12 && !d.startsWith("55")) d = "55"+d;
-  return "https://wa.me/"+d+"?text="+encodeURIComponent("Olá! Vi seu cadastro no CRM PixelUp 🙂");
-}
-// Detecta storage e mostra aviso
-var storageMode = "localStorage";
-try { localStorage.setItem("__t__","1"); localStorage.removeItem("__t__"); }
-catch(e){ storageMode = "cookie"; document.getElementById("lsWarning").style.display="block"; }
-
-// Escrita/leitura com fallback
-function saveBlob(key, value){
-  if (storageMode === "localStorage") {
-    try { localStorage.setItem(key, value); } catch(e){}
-  } else {
-    document.cookie = key + "=" + encodeURIComponent(value) + "; path=/; max-age=31536000; samesite=lax";
-  }
-}
-function loadBlob(key){
-  if (storageMode === "localStorage") {
-    try { return localStorage.getItem(key); } catch(e){ return null; }
-  } else {
-    var m = document.cookie.match(new RegExp('(?:^|; )' + key + '=([^;]*)'));
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-}
-
-// Use sempre estas:
-function persist(){ saveBlob("pixelup_crm_leads_v1", JSON.stringify(leads)); }
-function loadLeads(){ try { return JSON.parse(loadBlob("pixelup_crm_leads_v1") || "[]"); } catch(e){ return []; } }
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CRM PixelUp — Stable</title>
-  <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
-    .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
-    .topbar h1{margin:0;font-size:20px;font-weight:700}
-    .topbar h1 span{color:#2bb8ff;text-shadow:0 0 12px rgba(43,184,255,.6)}
-    .actions{display:flex;gap:10px;align-items:center}
-    .container{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:18px}
-    .card{background:#0d1b29;border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
-    h2{margin:0 0 12px 0;font-size:18px}
-    .form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .form-grid textarea{grid-column:1/-1;min-height:80px}
-    .form-grid button{grid-column:1/-1}
-    input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
-    input::placeholder,textarea::placeholder{color:#7fa8c3}
-    .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
-    .list-header{display:flex;gap:12px;justify-content:space-between;align-items:center;margin-bottom:10px}
-    .filters{display:flex;gap:10px}
-    .table-wrap{overflow:auto;border:1px solid #102437;border-radius:12px}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap}
-    th{background:#0b1520;position:sticky;top:0}
-    tr:hover{background:#0f1d2b}
-    .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
-    .actions-cell button.danger{border-color:#ff4d4d;color:#ff7878}
-    .footer{padding:20px;text-align:center;color:#86c8ea;opacity:.8}
-    @media (max-width:800px){.form-grid{grid-template-columns:1fr}.filters{flex-direction:column;align-items:stretch}}
-    .tag{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #17324a;background:#0f2132;color:#bfe6ff}
-    .warn{background:#2b1a00;border:1px solid #5a3b00;color:#ffd699;padding:10px;border-radius:10px;margin-bottom:12px;display:none}
-  </style>
-</head>
-<body>
-  <header class="topbar">
-    <h1>CRM <span>PixelUp</span></h1>
-  </header>
-
-  <main class="container">
-    <section class="card">
-      <div id="lsWarning" class="warn">⚠️ Seu navegador bloqueou o armazenamento (modo anônimo/extensões). Dados salvos via cookie.</div>
-      <h2>Novo Lead</h2>
-      <form id="leadForm" class="form-grid">
-        <input id="name" placeholder="Nome" required />
-        <input id="email" type="email" placeholder="E-mail" />
-        <input id="phone" placeholder="WhatsApp" />
-        <select id="stage">
-          <option value="novo">Novo</option>
-          <option value="qualificado">Qualificado</option>
-          <option value="proposta">Proposta</option>
-          <option value="ganho">Ganho</option>
-          <option value="perdido">Perdido</option>
-        </select>
-        <input id="source" placeholder="Origem (Instagram, Indicação...)" />
-        <textarea id="notes" placeholder="Notas"></textarea>
-        <button class="btn" type="submit">Salvar</button>
-      </form>
-    </section>
-
-    <section class="card">
-      <div class="list-header">
-        <h2>Leads</h2>
-        <div class="filters">
-          <input id="search" placeholder="Buscar por nome, e-mail, telefone..." />
-          <select id="filterStage">
-            <option value="">Todos os estágios</option>
-            <option value="novo">Novo</option>
-            <option value="qualificado">Qualificado</option>
-            <option value="proposta">Proposta</option>
-            <option value="ganho">Ganho</option>
-            <option value="perdido">Perdido</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="table-wrap">
-        <table id="leadsTable">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>E-mail</th>
-              <th>WhatsApp</th>
-              <th>Estágio</th>
-              <th>Origem</th>
-              <th>Atualizado</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <p>Feito com 💙 pela PixelUp — Demo localStorage (com fallback em cookie)</p>
-  </footer>
-
-  <script>
-  (function(){
-    var LS_KEY = "pixelup_crm_leads_v1";
-    var form = document.getElementById("leadForm");
-    var tbody = document.querySelector("#leadsTable tbody");
-    var search = document.getElementById("search");
-    var filterStage = document.getElementById("filterStage");
-    var lsWarning = document.getElementById("lsWarning");
-
-    // Detecta se localStorage funciona
-    var storageMode = "localStorage";
-    try { localStorage.setItem("__t__","1"); localStorage.removeItem("__t__"); }
-    catch(e){ storageMode = "cookie"; lsWarning.style.display="block"; }
-
-    function saveBlob(key, val){
-      if(storageMode==="localStorage"){
-        try{ localStorage.setItem(key, val); }catch(e){}
-      }else{
-        var v = encodeURIComponent(val);
-        document.cookie = key+"="+v+"; path=/; max-age=31536000; samesite=lax";
-      }
-    }
-    function loadBlob(key){
-      if(storageMode==="localStorage"){
-        try{ return localStorage.getItem(key); }catch(e){ return null; }
-      }else{
-        var m = document.cookie.match(new RegExp('(?:^|; )'+key+'=([^;]*)'));
-        return m ? decodeURIComponent(m[1]) : null;
-      }
-    }
-
-    var leads;
-    try { leads = JSON.parse(loadBlob(LS_KEY) || "[]"); } catch(e){ leads = []; }
-
-    function esc(s){
-      return String(s||"").replace(/[&<>\"']/g, function(m){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]; });
-    }
-
-    function render(){
-      var q = (search?.value||"").toLowerCase();
-      var stage = filterStage?.value||"";
-      var filtered = leads.filter(function(l){
-        return (!stage || l.stage===stage) && (
-          (l.name||"").toLowerCase().includes(q) ||
-          (l.email||"").toLowerCase().includes(q) ||
-          (l.phone||"").toLowerCase().includes(q) ||
-          (l.source||"").toLowerCase().includes(q) ||
-          (l.notes||"").toLowerCase().includes(q)
-        );
-      });
+      var q=(search.value||"").toLowerCase(), st=filterStage.value;
+      var sTs=parseDateTs(filterStart.value), eTs=parseDateTs(filterEnd.value,true);
+      var filtered=leads.filter(l=>{
+        var d=l.date?parseDateTs(l.date):l.createdAt;
+        return (!st||l.stage===st)
+          &&((l.name||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q)||(l.phone||"").toLowerCase().includes(q)||(l.source||"").toLowerCase().includes(q)||(l.notes||"").toLowerCase().includes(q))
+          &&(sTs==null||d>=sTs)&&(eTs==null||d<=eTs);
+      }).sort((a,b)=>{var A=a[sortKey]||0,B=b[sortKey]||0;return A<B?(sortDir==="asc"?-1:1):A>B?(sortDir==="asc"?1:-1):0;});
       tbody.innerHTML="";
-      filtered.forEach(function(l){
+      filtered.forEach(l=>{
         var tr=document.createElement("tr");
-        tr.innerHTML="<td>"+esc(l.name)+"</td>"+
-                     "<td>"+esc(l.email||"")+"</td>"+
-                     "<td>"+esc(l.phone||"")+"</td>"+
-                     "<td>"+esc(l.stage||"novo")+"</td>"+
-                     "<td>"+esc(l.source||"")+"</td>"+
-                     "<td>"+new Date(l.updatedAt).toLocaleString()+"</td>"+
-                     "<td class='actions-cell'><button onclick=''>Editar</button><button class='danger' onclick=''>Excluir</button></td>";
-        tbody.appendChild(tr);
+        tr.innerHTML="<td>"+esc(l.name)+"</td><td>"+esc(l.email||"")+"</td><td>"+esc(l.phone||"")+"</td><td><span class='tag'>"+esc(l.stage||"novo")+"</span></td><td>"+esc(l.source||"")+"</td><td>"+esc(formatDate(l.date,l.createdAt))+"</td><td>"+new Date(l.createdAt).toLocaleString()+"</td><td>"+new Date(l.updatedAt).toLocaleString()+"</td>";
+        var tdAct=document.createElement("td");tdAct.className="actions-cell";
+        var aWa=document.createElement("a");aWa.href=formatPhoneToWa(l.phone);aWa.target="_blank";aWa.textContent="WhatsApp";tdAct.appendChild(aWa);
+        var bE=document.createElement("button");bE.textContent="Editar";bE.onclick=()=>editLead(l.id);tdAct.appendChild(bE);
+        var bD=document.createElement("button");bD.className="danger";bD.textContent="Excluir";bD.onclick=()=>deleteLead(l.id);tdAct.appendChild(bD);
+        tr.appendChild(tdAct);tbody.appendChild(tr);
       });
     }
 
     function persist(){ saveBlob(LS_KEY, JSON.stringify(leads)); }
 
-    form.addEventListener("submit", function(e){
+    // ===== FORM =====
+    form.addEventListener("submit",e=>{
       e.preventDefault();
-      var lead = {
-        id: Date.now(),
-        name: document.getElementById("name").value.trim(),
-        email: document.getElementById("email").value.trim(),
-        phone: document.getElementById("phone").value.trim(),
-        stage: document.getElementById("stage").value,
-        source: document.getElementById("source").value.trim(),
-        notes: document.getElementById("notes").value.trim(),
-        updatedAt: Date.now()
-      };
-      if(!lead.name){ alert("Informe ao menos o nome."); return; }
-      leads.push(lead); persist(); form.reset(); render();
+      var lead={id:crypto.randomUUID?crypto.randomUUID():Date.now()+"",
+        name:form.name.value.trim(),email:form.email.value.trim(),phone:form.phone.value.trim(),
+        stage:form.stage.value,source:form.source.value.trim(),notes:form.notes.value.trim(),
+        date:form.date.value,createdAt:Date.now(),updatedAt:Date.now()};
+      if(!lead.name){alert("Informe ao menos o nome.");return;}
+      leads.push(lead);persist();form.reset();render();
     });
 
-    search.addEventListener("input", render);
-    filterStage.addEventListener("change", render);
+    // ===== EDIT/DEL =====
+    function editLead(id){var l=leads.find(x=>x.id===id);if(!l)return;
+      var name=prompt("Nome:",l.name);if(name===null)return;
+      var email=prompt("E-mail:",l.email||"");if(email===null)return;
+      var phone=prompt("WhatsApp:",l.phone||"");if(phone===null)return;
+      var stage=prompt("Estágio:",l.stage)||l.stage;
+      var source=prompt("Origem:",l.source||"");if(source===null)return;
+      var notes=prompt("Notas:",l.notes||"");if(notes===null)return;
+      var date=prompt("Data (yyyy-mm-dd):",l.date||"")||l.date||"";
+      Object.assign(l,{name,email,phone,stage,source,notes,date,updatedAt:Date.now()});
+      persist();render();
+    }
+    function deleteLead(id){if(!confirm("Excluir?"))return;leads=leads.filter(x=>x.id!==id);persist();render();}
 
+    // ===== SORT =====
+    document.querySelectorAll("th[data-sort]").forEach(th=>{
+      th.onclick=()=>{var k=th.dataset.sort;if(sortKey===k)sortDir=sortDir==="asc"?"desc":"asc";else{sortKey=k;sortDir="asc";}render();}
+    });
+
+    // ===== EXPORT/IMPORT =====
+    exportBtn.onclick=()=>downloadFile("leads.csv",toCSV(leads),"text/csv");
+    function toCSV(rows){var h=["id","name","email","phone","stage","source","notes","date","createdAt","updatedAt"];
+      return [h.join(",")].concat(rows.map(l=>h.map(k=>{var v=l[k]||"";v=(""+v).replace(/"/g,'""');return /[",\n]/.test(v)?`"${v}"`:v;}).join(","))).join("\n");}
+    function downloadFile(fn,content,mime){var b=new Blob([content],{type:mime});var u=URL.createObjectURL(b);var a=document.createElement("a");a.href=u;a.download=fn;a.click();URL.revokeObjectURL(u);}
+    importInp.onchange=e=>{var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=()=>{try{var arr=JSON.parse(r.result);if(Array.isArray(arr)){var by={};leads.forEach(l=>by[l.id]=l);arr.forEach(n=>{if(n&&n.id)by[n.id]=n});leads=Object.values(by);persist();render();alert("Importado!");}else alert("JSON inválido");}catch(err){alert("Erro: "+err)}};r.readAsText(f);};
+
+    // ===== INIT =====
+    ["input","change"].forEach(ev=>{search.addEventListener(ev,render);filterStage.addEventListener(ev,render);filterStart.addEventListener(ev,render);filterEnd.addEventListener(ev,render);});
     render();
   })();
   </script>
