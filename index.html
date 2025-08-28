@@ -24,6 +24,7 @@
       background:rgba(11,21,32,.75);
       border-bottom:1px solid #102437;
       backdrop-filter:blur(4px);
+      z-index: 10;
     }
     .topbar h1{margin:0;font-size:20px;font-weight:700}
     .topbar h1 span{color:#2bb8ff;text-shadow:0 0 14px rgba(43,184,255,.65)}
@@ -77,6 +78,27 @@
 
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
+
+    /* === MODAL DETALHES === */
+    .modal{
+      position:fixed;inset:0;
+      background:rgba(0,0,0,.6);
+      display:flex;align-items:center;justify-content:center;
+      z-index:9999;
+      padding:16px;
+    }
+    .modal-content{
+      background:#0f2132;color:#eaf6ff;
+      border:1px solid #17324a;border-radius:14px;
+      width:100%;max-width:520px;padding:18px;
+      box-shadow:0 10px 40px rgba(0,0,0,.5);
+    }
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .modal-header h3{margin:0;font-size:18px}
+    .modal-close{background:transparent;border:1px solid #17324a;color:#cde9ff;border-radius:10px;padding:6px 10px;cursor:pointer}
+    .dl{display:grid;grid-template-columns:120px 1fr;gap:8px;margin-top:8px}
+    .dl b{color:#9fd9ff}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; opacity:.9}
   </style>
 </head>
 <body>
@@ -176,9 +198,10 @@
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    function esc(s){return String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
 
+    /* ===== LISTA ===== */
     function renderList(){
       tbody.innerHTML="";
       const q=(search?.value||"").toLowerCase();
@@ -197,6 +220,36 @@
       }
     }
 
+    /* ===== MODAL ===== */
+    function showLeadDetails(lead){
+      const modal=document.createElement("div");
+      modal.className="modal";
+      modal.innerHTML=`
+        <div class="modal-content" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h3>Detalhes do Lead</h3>
+            <button class="modal-close" id="closeModalBtn">Fechar</button>
+          </div>
+          <div class="dl">
+            <b>Nome</b> <div>${esc(lead.name)}</div>
+            <b>E-mail</b> <div>${esc(lead.email||"")}</div>
+            <b>WhatsApp</b> <div class="mono">${esc(lead.phone||"")}</div>
+            <b>Estágio</b> <div>${esc(lead.stage)}</div>
+            <b>Origem</b> <div>${esc(lead.source||"")}</div>
+            <b>Data</b> <div>${esc(lead.date||"")}</div>
+            <b>Criado</b> <div>${new Date(lead.createdAt).toLocaleString()}</div>
+            <b>Atualizado</b> <div>${new Date(lead.updatedAt).toLocaleString()}</div>
+            <b>Notas</b> <div style="white-space:pre-wrap">${esc(lead.notes||"-")}</div>
+          </div>
+        </div>`;
+      const close = () => modal.remove();
+      modal.addEventListener("click", e=>{ if(e.target===modal) close(); });
+      modal.querySelector("#closeModalBtn").addEventListener("click", close);
+      document.addEventListener("keydown", function escKey(ev){ if(ev.key==="Escape"){ close(); document.removeEventListener("keydown", escKey);} });
+      document.body.appendChild(modal);
+    }
+
+    /* ===== KANBAN ===== */
     function renderKanban(){
       const stages=["novo","qualificado","proposta","ganho","perdido"];
       for(const stage of stages){
@@ -209,6 +262,8 @@
           const card=document.createElement("div");
           card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
           card.innerHTML=`<div class="name">${esc(l.name||"")}</div><div class="meta">${esc(l.email||"")}</div>`;
+          /* Abrir modal ao clicar */
+          card.addEventListener("click", ()=> showLeadDetails(l));
           body.appendChild(card);
         }
       }
@@ -233,6 +288,7 @@
 
     function renderAll(){renderList();renderKanban();}
 
+    /* ===== FORM ===== */
     if(form){
       form.addEventListener("submit", e=>{
         e.preventDefault();
@@ -246,6 +302,7 @@
       });
     }
 
+    /* ===== ABAS ===== */
     if(tabList&&tabKanban&&tableWrap&&kanbanEl){
       tabList.onclick=()=>{tabList.classList.add("active");tabKanban.classList.remove("active");tableWrap.style.display="block";kanbanEl.classList.remove("visible");};
       tabKanban.onclick=()=>{tabKanban.classList.add("active");tabList.classList.remove("active");tableWrap.style.display="none";kanbanEl.classList.add("visible");renderKanban();};
