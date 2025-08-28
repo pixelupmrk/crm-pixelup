@@ -65,7 +65,6 @@
     .kcard .name{font-weight:600;margin-bottom:2px}
     .kcard .meta{opacity:.8}
 
-    /* handle de arrasto */
     .drag-handle{
       position:absolute;bottom:6px;right:6px;font-size:14px;line-height:1;
       background:#0b1520;border:1px solid #17324a;border-radius:8px;padding:3px 6px;user-select:none;cursor:grab
@@ -88,7 +87,6 @@
     .wa-icon:hover{transform:scale(1.1)}
     .wa-icon svg{width:14px;height:14px;display:block;fill:#fff}
 
-    /* Botão editar no card */
     .edit-btn{
       position:absolute;top:6px;left:6px;
       background:#0f2132;border:1px solid #17324a;color:#cde9ff;
@@ -99,18 +97,27 @@
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
 
-    /* ===== Modal (fix centrado + scroll lock) ===== */
+    /* ===== Modal centrado e flutuante ===== */
     .modal{
-      position:fixed; inset:0;
-      display:grid; place-items:center;
-      padding:16px; z-index:9999;
-      background:rgba(0,0,0,.6);
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 999999;
     }
     .modal-content{
-      background:#0f2132;color:#eaf6ff;border:1px solid #17324a;
-      border-radius:14px;width:100%;max-width:640px;
-      max-height:90vh; overflow:auto;
-      padding:18px; box-shadow:0 10px 40px rgba(0,0,0,.5)
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(94vw, 640px);
+      max-height: 90vh;
+      overflow: auto;
+      background: #0f2132;
+      color: #eaf6ff;
+      border: 1px solid #17324a;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.5);
     }
     body.modal-open{ overflow:hidden; }
 
@@ -255,28 +262,19 @@
 
   <script>
   document.addEventListener("DOMContentLoaded", function(){
-    // ========= STORAGE COM FALLBACK =========
     const storageStatus = document.getElementById("storageStatus");
     function setStatus(msg, cls){ storageStatus.textContent = msg; storageStatus.className = "status " + (cls||""); }
 
     let storage;
     (function initStorage(){
-      try{
-        const t="__px_test__";
-        localStorage.setItem(t,"1"); localStorage.removeItem(t);
-        storage = localStorage;
-        setStatus("Armazenamento: localStorage ativo ✅", "ok");
+      try{ const t="__px_test__"; localStorage.setItem(t,"1"); localStorage.removeItem(t);
+        storage=localStorage; setStatus("Armazenamento: localStorage ativo ✅","ok");
       }catch(e1){
-        try{
-          const t="__px_test__";
-          sessionStorage.setItem(t,"1"); sessionStorage.removeItem(t);
-          storage = sessionStorage;
-          setStatus("Aviso: localStorage bloqueado. Usando sessionStorage (perde ao fechar o navegador).", "warn");
-          console.warn("localStorage indisponível, fallback para sessionStorage:", e1);
+        try{ const t="__px_test__"; sessionStorage.setItem(t,"1"); sessionStorage.removeItem(t);
+          storage=sessionStorage; setStatus("Aviso: usando sessionStorage (perde ao fechar o navegador).","warn");
         }catch(e2){
-          storage = {getItem:()=>null,setItem:()=>{throw new Error("Sem armazenamento");},removeItem:()=>{}};
-          setStatus("Erro: armazenamento bloqueado no navegador. Os dados não serão salvos.", "err");
-          console.error("Nenhum storage disponível:", e1, e2);
+          storage={getItem:()=>null,setItem:()=>{throw new Error("Sem storage");},removeItem:()=>{}};
+          setStatus("Erro: armazenamento bloqueado. Dados não serão salvos.","err");
         }
       }
     })();
@@ -284,33 +282,26 @@
     const LS_KEY="pixelup_crm_leads_v1";
     const WA_TPL_KEY="pixelup_crm_wa_template_v1";
 
-    function safeGetJSON(key, def){
-      try{ const v = storage.getItem(key); return v? JSON.parse(v): def; }catch(e){ console.error("Erro ao ler storage", key, e); return def; }
-    }
-    function safeSetJSON(key, val){
-      try{ storage.setItem(key, JSON.stringify(val)); return true; }
-      catch(e){ console.error("Erro ao salvar storage", key, e); alert("Erro ao salvar dados no navegador. Veja o Console (F12) para detalhes."); setStatus("Erro ao salvar (ver Console).", "err"); return false; }
-    }
+    function safeGetJSON(key, def){ try{const v=storage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
+    function safeSetJSON(key, val){ try{storage.setItem(key, JSON.stringify(val));return true;}catch(e){setStatus("Erro ao salvar (ver Console).","err");return false;} }
 
-    let waTemplate = storage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}) e gostaria de ajudar. Podemos falar?";
+    let waTemplate = storage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}). Podemos falar?";
     let leads = safeGetJSON(LS_KEY, []);
 
-    // ===== MIGRAÇÃO simples (se havia tags antigas) =====
+    // pequena migração (tags → qualif)
     let changed=false;
     for(const l of leads){
       if(!l.qualif && l.tags){
-        const tags=(l.tags||[]).map(t=>String(t).toLowerCase());
-        if(tags.some(t=>t.includes("quente"))) l.qualif="quente";
-        else if(tags.some(t=>t.includes("morno"))) l.qualif="morno";
-        else if(tags.some(t=>t.includes("frio"))) l.qualif="frio";
+        const t=(l.tags||[]).map(x=>String(x).toLowerCase());
+        if(t.some(s=>s.includes("quente"))) l.qualif="quente";
+        else if(t.some(s=>s.includes("morno"))) l.qualif="morno";
+        else if(t.some(s=>s.includes("frio"))) l.qualif="frio";
         changed=true;
       }
     }
     if(changed) safeSetJSON(LS_KEY, leads);
+    const persist=()=>safeSetJSON(LS_KEY, leads);
 
-    const persist = () => safeSetJSON(LS_KEY, leads);
-
-    // Helpers
     const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
@@ -327,12 +318,9 @@
         "{{data}}": lead.date||"",
         "{{qualificacao}}": qualName(lead.qualif)||""
       };
-      let out = tpl;
-      for(const k in map){ out = out.split(k).join(map[k]); }
-      return out;
+      let out=tpl; for(const k in map){ out=out.split(k).join(map[k]); } return out;
     }
 
-    // DOM refs
     const form=document.getElementById("leadForm");
     const tbody=document.querySelector("#leadsTable tbody");
     const search=document.getElementById("search");
@@ -349,9 +337,8 @@
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    /* ===== MODAL ===== */
+    /* ===== Modal ===== */
     function showLeadDetails(lead){
-      // garante que não existam dois modais
       document.querySelectorAll(".modal").forEach(m=>m.remove());
 
       const wa = digits(lead.phone||"");
@@ -448,10 +435,7 @@
         window.open(`https://wa.me/${num}?text=${text}`, "_blank");
       });
 
-      const close = () => {
-        document.body.classList.remove('modal-open');
-        modal.remove();
-      };
+      const close = () => { document.body.classList.remove('modal-open'); modal.remove(); };
       modal.addEventListener("click", e=>{ if(e.target===modal) close(); });
       modal.querySelector("#closeModalBtn").addEventListener("click", close);
       document.addEventListener("keydown", function escKey(ev){ if(ev.key==="Escape"){ close(); document.removeEventListener("keydown", escKey);} });
@@ -487,11 +471,10 @@
         lead.notes  = formE.querySelector("#e_notes").value.trim();
         lead.updatedAt = Date.now();
         if(persist()){ setStatus("Alterações salvas ✅", "ok"); }
-        close(); // fecha modal com unlock do scroll
-        renderAll();
+        close(); renderAll();
       });
 
-      document.body.classList.add('modal-open');   // bloqueia scroll do fundo
+      document.body.classList.add('modal-open');
       document.body.appendChild(modal);
     }
 
@@ -562,11 +545,7 @@
 
     function openEditForLead(lead){
       showLeadDetails(lead);
-      setTimeout(()=>{ 
-        const btn=document.querySelector('.modal #editBtn');
-        if(btn){ btn.click(); }
-        else { setTimeout(()=>document.querySelector('.modal #editBtn')?.click(), 50); }
-      }, 0);
+      setTimeout(()=>{ document.querySelector('.modal #editBtn')?.click(); }, 0);
     }
 
     function renderKanban(){
@@ -580,16 +559,12 @@
         for(const l of items){
           const card=document.createElement("div");
           card.className="kcard";
-          card.draggable=true;       // drag só via handle
+          card.draggable=true;
           card.dataset.id=l.id;
           card.tabIndex=0;
 
-          // botão ✏️ para editar direto
           const edit=document.createElement("button");
-          edit.type="button";
-          edit.className="edit-btn";
-          edit.title="Editar lead";
-          edit.innerHTML="✏️";
+          edit.type="button"; edit.className="edit-btn"; edit.title="Editar lead"; edit.innerHTML="✏️";
           edit.addEventListener("click",(ev)=>{ ev.stopPropagation(); openEditForLead(l); });
           card.appendChild(edit);
 
@@ -610,14 +585,10 @@
             card.appendChild(a);
           }
 
-          // handle de arrasto (⠿)
           const handle=document.createElement("div");
-          handle.className="drag-handle";
-          handle.title="Arrastar para outra coluna";
-          handle.textContent="⠿";
+          handle.className="drag-handle"; handle.title="Arrastar para outra coluna"; handle.textContent="⠿";
           card.appendChild(handle);
 
-          // clique normal → detalhes; duplo clique → editar direto
           card.addEventListener("click", ()=> showLeadDetails(l));
           card.addEventListener("dblclick", (ev)=>{ ev.preventDefault(); openEditForLead(l); });
           card.addEventListener("keydown", (ev)=>{
@@ -625,7 +596,6 @@
             if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase()==="e"){ ev.preventDefault(); openEditForLead(l); }
           });
 
-          // drag só se o gesto iniciar no handle:
           card.addEventListener("dragstart", e=>{
             if(!e.target.closest(".drag-handle")){ e.preventDefault(); return; }
             e.dataTransfer.setData("text/plain", card.dataset.id);
@@ -650,7 +620,7 @@
       });
     }
 
-    /* ===== DASHBOARD ===== */
+    /* ===== Dashboard ===== */
     function computeStats(){
       const total = leads.length;
       const vendidos = leads.filter(l=>l.stage==="vendido").length;
@@ -709,7 +679,7 @@
       });
     }
 
-    /* ===== EXPORT CSV ===== */
+    /* ===== Export CSV ===== */
     function toCsvRow(arr){return arr.map(v=>('"'+String(v??"").replace(/"/g,'""')+'"')).join(",");}
     function downloadCsv(filename, csv){
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
@@ -718,14 +688,14 @@
       URL.revokeObjectURL(url);
     }
     exportBtn.addEventListener("click", ()=>{
-      const headers = ["id","nome","email","whatsapp","atendente","estagio","origem","data","qualificacao","notas","criado_em","atualizado_em"];
-      const rows = [headers];
+      const headers=["id","nome","email","whatsapp","atendente","estagio","origem","data","qualificacao","notas","criado_em","atualizado_em"];
+      const rows=[headers];
       const ownerFilter=fOwner?.value||"";
       const qualFilter=fQualif?.value||"";
       const q=(search?.value||"").toLowerCase();
       const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
 
-      const filtered = leads.filter(l=>{
+      const filtered=leads.filter(l=>{
         const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();
         const d=l.date?parseDateTs(l.date):l.updatedAt;
         if(q && !txt.includes(q)) return false;
@@ -737,17 +707,15 @@
       });
 
       for(const l of filtered){
-        rows.push([
-          l.id, l.name||"", l.email||"", l.phone||"", l.owner||"",
-          l.stage||"", l.source||"", l.date||"", qualName(l.qualif)||"",
-          l.notes||"", new Date(l.createdAt).toISOString(), new Date(l.updatedAt).toISOString()
-        ]);
+        rows.push([l.id,l.name||"",l.email||"",l.phone||"",l.owner||"",
+          l.stage||"",l.source||"",l.date||"",qualName(l.qualif)||"",
+          l.notes||"",new Date(l.createdAt).toISOString(),new Date(l.updatedAt).toISOString()]);
       }
       const csv = rows.map(toCsvRow).join("\n");
       downloadCsv(`leads_pixelup_${new Date().toISOString().slice(0,10)}.csv`, csv);
     });
 
-    /* ===== FORM ===== */
+    /* ===== Form ===== */
     if(form){
       form.addEventListener("submit", e=>{
         e.preventDefault();
@@ -764,68 +732,40 @@
           createdAt:Date.now(),updatedAt:Date.now()};
         if(!lead.name){alert("Informe o nome");return;}
         leads.push(lead);
-        if(persist()){
-          setStatus("Lead salvo ✅", "ok");
-          form.reset();
-          renderAll();
-        }
+        if(persist()){ setStatus("Lead salvo ✅","ok"); form.reset(); renderAll(); }
       });
     }
 
-    /* ===== TEMPLATE PADRÃO ===== */
+    /* ===== Template WhatsApp ===== */
     btnTemplate.addEventListener("click", ()=>{
-      const novo = prompt(
-        "Edite o texto padrão do WhatsApp.\nPlaceholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}",
-        waTemplate
-      );
+      const novo = prompt("Edite o texto padrão do WhatsApp.\nPlaceholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}", waTemplate);
       if(novo!=null){
-        waTemplate = novo;
+        waTemplate=novo;
         try{ storage.setItem(WA_TPL_KEY, waTemplate); setStatus("Modelo de WhatsApp salvo ✅","ok"); }
-        catch(e){ console.error(e); setStatus("Erro ao salvar modelo de WhatsApp","err"); }
+        catch(e){ setStatus("Erro ao salvar modelo","err"); }
       }
     });
 
-    /* ===== ABAS (Kanban em colunas) ===== */
+    /* ===== Abas ===== */
     tabDashboard.onclick=()=>{
-      tabDashboard.classList.add("active");
-      tabList.classList.remove("active");
-      tabKanban.classList.remove("active");
-
-      dashboard.style.display="block";
-      tableWrap.style.display="none";
-      kanbanEl.classList.remove("visible");
-      kanbanEl.style.display="none";
-
+      tabDashboard.classList.add("active"); tabList.classList.remove("active"); tabKanban.classList.remove("active");
+      dashboard.style.display="block"; tableWrap.style.display="none"; kanbanEl.classList.remove("visible"); kanbanEl.style.display="none";
       renderDashboard();
     };
     tabList.onclick=()=>{
-      tabList.classList.add("active");
-      tabDashboard.classList.remove("active");
-      tabKanban.classList.remove("active");
-
-      tableWrap.style.display="block";
-      dashboard.style.display="none";
-      kanbanEl.classList.remove("visible");
-      kanbanEl.style.display="none";
+      tabList.classList.add("active"); tabDashboard.classList.remove("active"); tabKanban.classList.remove("active");
+      tableWrap.style.display="block"; dashboard.style.display="none"; kanbanEl.classList.remove("visible"); kanbanEl.style.display="none";
     };
     tabKanban.onclick=()=>{
-      tabKanban.classList.add("active");
-      tabList.classList.remove("active");
-      tabDashboard.classList.remove("active");
-
-      kanbanEl.style.display="grid";
-      kanbanEl.classList.add("visible");
-
-      dashboard.style.display="none";
-      tableWrap.style.display="none";
-
+      tabKanban.classList.add("active"); tabList.classList.remove("active"); tabDashboard.classList.remove("active");
+      kanbanEl.style.display="grid"; kanbanEl.classList.add("visible");
+      dashboard.style.display="none"; tableWrap.style.display="none";
       renderKanban();
     };
 
     [search,fOwner,fQualif,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",()=>{renderList(); renderDashboard();}));
 
     function renderAll(){renderList();renderKanban();renderDashboard();}
-    console.log("Leads carregados:", leads.length);
     renderAll();
   });
   </script>
