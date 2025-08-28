@@ -98,6 +98,10 @@
     .mini-table{width:100%;border-collapse:collapse}
     .mini-table th,.mini-table td{border-bottom:1px solid #102437;padding:8px;text-align:left;font-size:13px}
     @media (max-width:900px){.dash-grid{grid-template-columns:1fr}.dash-panels{grid-template-columns:1fr}}
+    .status{margin-top:8px;font-size:12px;opacity:.85}
+    .status.ok{color:#9fe870}
+    .status.warn{color:#ffd166}
+    .status.err{color:#ff7b7b}
   </style>
 </head>
 <body>
@@ -130,6 +134,7 @@
         <textarea id="notes" placeholder="Notas"></textarea>
         <button class="btn" type="submit">Salvar</button>
       </form>
+      <div id="storageStatus" class="status"></div>
     </section>
 
     <!-- Lista + Kanban + Dashboard -->
@@ -202,49 +207,71 @@
 
       <!-- KANBAN -->
       <div id="kanban" class="kanban">
-        <div class="kcol" data-stage="novo">
-          <div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div>
-          <div class="kbody" id="col-novo"></div>
-        </div>
-        <div class="kcol" data-stage="qualificado">
-          <div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div>
-          <div class="kbody" id="col-qualificado"></div>
-        </div>
-        <div class="kcol" data-stage="proposta">
-          <div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div>
-          <div class="kbody" id="col-proposta"></div>
-        </div>
-        <div class="kcol" data-stage="vendido">
-          <div class="khead"><span class="title">Vendido</span><span class="count" id="count-vendido">0</span></div>
-          <div class="kbody" id="col-vendido"></div>
-        </div>
-        <div class="kcol" data-stage="perdido">
-          <div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div>
-          <div class="kbody" id="col-perdido"></div>
-        </div>
+        <div class="kcol" data-stage="novo"><div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div><div class="kbody" id="col-novo"></div></div>
+        <div class="kcol" data-stage="qualificado"><div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div><div class="kbody" id="col-qualificado"></div></div>
+        <div class="kcol" data-stage="proposta"><div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div><div class="kbody" id="col-proposta"></div></div>
+        <div class="kcol" data-stage="vendido"><div class="khead"><span class="title">Vendido</span><span class="count" id="count-vendido">0</span></div><div class="kbody" id="col-vendido"></div></div>
+        <div class="kcol" data-stage="perdido"><div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div><div class="kbody" id="col-perdido"></div></div>
       </div>
     </section>
   </main>
 
   <script>
   document.addEventListener("DOMContentLoaded", function(){
+    // ========= STORAGE COM FALLBACK =========
+    const storageStatus = document.getElementById("storageStatus");
+    function setStatus(msg, cls){ storageStatus.textContent = msg; storageStatus.className = "status " + (cls||""); }
+
+    let storage;
+    (function initStorage(){
+      try{
+        const t="__px_test__";
+        localStorage.setItem(t,"1"); localStorage.removeItem(t);
+        storage = localStorage;
+        setStatus("Armazenamento: localStorage ativo ✅", "ok");
+      }catch(e1){
+        try{
+          const t="__px_test__";
+          sessionStorage.setItem(t,"1"); sessionStorage.removeItem(t);
+          storage = sessionStorage;
+          setStatus("Aviso: localStorage bloqueado. Usando sessionStorage (perde ao fechar o navegador).", "warn");
+          console.warn("localStorage indisponível, fallback para sessionStorage:", e1);
+        }catch(e2){
+          storage = {getItem:()=>null,setItem:()=>{throw new Error("Sem armazenamento");},removeItem:()=>{}};
+          setStatus("Erro: armazenamento bloqueado no navegador. Os dados não serão salvos.", "err");
+          console.error("Nenhum storage disponível:", e1, e2);
+        }
+      }
+    })();
+
     const LS_KEY="pixelup_crm_leads_v1";
     const WA_TPL_KEY="pixelup_crm_wa_template_v1";
-    let waTemplate = localStorage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}) e gostaria de ajudar. Podemos falar?";
-    let leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
 
-    // ===== MIGRAÇÃO (se houver dados antigos) =====
-    let migrated=false;
+    function safeGetJSON(key, def){
+      try{ const v = storage.getItem(key); return v? JSON.parse(v): def; }catch(e){ console.error("Erro ao ler storage", key, e); return def; }
+    }
+    function safeSetJSON(key, val){
+      try{ storage.setItem(key, JSON.stringify(val)); return true; }
+      catch(e){ console.error("Erro ao salvar storage", key, e); alert("Erro ao salvar dados no navegador. Veja o Console (F12) para detalhes."); setStatus("Erro ao salvar (ver Console).", "err"); return false; }
+    }
+
+    let waTemplate = storage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}) e gostaria de ajudar. Podemos falar?";
+    let leads = safeGetJSON(LS_KEY, []);
+
+    // ===== MIGRAÇÃO simples (se havia tags antigas) =====
+    let changed=false;
     for(const l of leads){
-      if(!l.qualif){
+      if(!l.qualif && l.tags){
         const tags=(l.tags||[]).map(t=>String(t).toLowerCase());
         if(tags.some(t=>t.includes("quente"))) l.qualif="quente";
         else if(tags.some(t=>t.includes("morno"))) l.qualif="morno";
         else if(tags.some(t=>t.includes("frio"))) l.qualif="frio";
+        changed=true;
       }
     }
-    if(migrated) localStorage.setItem(LS_KEY, JSON.stringify(leads));
-    const persist=()=>localStorage.setItem(LS_KEY, JSON.stringify(leads));
+    if(changed) safeSetJSON(LS_KEY, leads);
+
+    const persist = () => safeSetJSON(LS_KEY, leads);
 
     // Helpers
     const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
@@ -416,7 +443,8 @@
         lead.qualif = formE.querySelector("#e_qualif").value;
         lead.notes  = formE.querySelector("#e_notes").value.trim();
         lead.updatedAt = Date.now();
-        persist(); modal.remove(); renderAll();
+        if(persist()){ setStatus("Alterações salvas ✅", "ok"); }
+        modal.remove(); renderAll();
       });
 
       document.body.appendChild(modal);
@@ -460,7 +488,7 @@
                       <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
         const td=document.createElement("td"); td.className="actions-cell";
         const del=document.createElement("button"); del.textContent="Excluir";
-        del.addEventListener("click", (ev)=>{ ev.stopPropagation(); leads=leads.filter(x=>x.id!==l.id);persist();renderAll(); });
+        del.addEventListener("click", (ev)=>{ ev.stopPropagation(); leads=leads.filter(x=>x.id!==l.id); if(persist()){ setStatus("Lead excluído ✅","ok"); } renderAll(); });
         td.appendChild(del); tr.appendChild(td);
         tbody.appendChild(tr);
       }
@@ -531,7 +559,7 @@
           e.preventDefault(); col.classList.remove("kdrop");
           const id=e.dataTransfer.getData("text/plain");
           const l=leads.find(x=>x.id===id);
-          if(l){ l.stage=col.parentElement.dataset.stage; l.updatedAt=Date.now(); persist(); renderAll(); }
+          if(l){ l.stage=col.parentElement.dataset.stage; l.updatedAt=Date.now(); if(persist()){ setStatus("Lead movido ✅","ok"); } renderAll(); }
         });
       });
     }
@@ -649,7 +677,12 @@
           notes:document.getElementById("notes").value.trim(),
           createdAt:Date.now(),updatedAt:Date.now()};
         if(!lead.name){alert("Informe o nome");return;}
-        leads.push(lead); persist(); form.reset(); renderAll();
+        leads.push(lead);
+        if(persist()){
+          setStatus("Lead salvo ✅", "ok");
+          form.reset();
+          renderAll();
+        }
       });
     }
 
@@ -661,12 +694,12 @@
       );
       if(novo!=null){
         waTemplate = novo;
-        localStorage.setItem(WA_TPL_KEY, waTemplate);
-        alert("Modelo salvo!");
+        try{ storage.setItem(WA_TPL_KEY, waTemplate); setStatus("Modelo de WhatsApp salvo ✅","ok"); }
+        catch(e){ console.error(e); setStatus("Erro ao salvar modelo de WhatsApp","err"); }
       }
     });
 
-    /* ===== ABAS (corrigido: classe 'visible' no Kanban) ===== */
+    /* ===== ABAS (Kanban em colunas) ===== */
     tabDashboard.onclick=()=>{
       tabDashboard.classList.add("active");
       tabList.classList.remove("active");
@@ -704,7 +737,9 @@
     };
 
     [search,fOwner,fQualif,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",()=>{renderList(); renderDashboard();}));
+
     function renderAll(){renderList();renderKanban();renderDashboard();}
+    console.log("Leads carregados:", leads.length);
     renderAll();
   });
   </script>
