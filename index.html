@@ -137,10 +137,14 @@
         <h2>Leads</h2>
         <div class="filters">
           <input id="search" placeholder="Buscar..." />
+          <select id="filterOwner">
+            <option value="">Todos atendentes</option>
+          </select>
           <div class="filter-dates">
             <span>De</span><input id="filterStart" type="date">
             <span>Até</span><input id="filterEnd" type="date">
           </div>
+          <button id="exportCsv" class="btn">Exportar CSV</button>
         </div>
       </div>
 
@@ -196,14 +200,16 @@
     const form=document.getElementById("leadForm");
     const tbody=document.querySelector("#leadsTable tbody");
     const search=document.getElementById("search");
+    const fOwner=document.getElementById("filterOwner");
     const fStart=document.getElementById("filterStart");
     const fEnd=document.getElementById("filterEnd");
+    const exportBtn=document.getElementById("exportCsv");
     const tabList=document.getElementById("tabList");
     const tabKanban=document.getElementById("tabKanban");
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;"," >":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
 
     /* ===== MODAL ===== */
@@ -259,7 +265,6 @@
       modal.querySelector("#closeModalBtn").addEventListener("click", close);
       document.addEventListener("keydown", function escKey(ev){ if(ev.key==="Escape"){ close(); document.removeEventListener("keydown", escKey);} });
 
-      // Alternar detalhes/edição
       const details = modal.querySelector("#detailsView");
       const formE = modal.querySelector("#editForm");
       const editBtn = modal.querySelector("#editBtn");
@@ -306,13 +311,20 @@
     function renderList(){
       tbody.innerHTML="";
       const q=(search?.value||"").toLowerCase();
+      const ownerFilter=fOwner?.value||"";
       const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
-      for(const l of leads){
+
+      const filtered = leads.filter(l=>{
         const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
         const d=l.date?parseDateTs(l.date):l.updatedAt;
-        if(q && !txt.includes(q)) continue;
-        if(sTs && d<sTs) continue; if(eTs && d>eTs) continue;
+        if(q && !txt.includes(q)) return false;
+        if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
+        if(sTs && d<sTs) return false;
+        if(eTs && d>eTs) return false;
+        return true;
+      });
 
+      for(const l of filtered){
         const tr=document.createElement("tr");
         tr.className="clickable";
         tr.dataset.id=l.id;
@@ -330,16 +342,29 @@
         td.appendChild(del); tr.appendChild(td);
         tbody.appendChild(tr);
       }
+
+      // Atualiza dropdown de atendentes
+      populateOwnerFilter();
     }
 
     /* clique na linha da LISTA abre modal */
     tbody.addEventListener("click", (e)=>{
-      if(e.target.closest(".actions-cell")) return; // clicou em botão
+      if(e.target.closest(".actions-cell")) return;
       const tr=e.target.closest("tr");
       if(!tr) return;
       const lead=leads.find(x=>x.id===tr.dataset.id);
       if(lead) showLeadDetails(lead);
     });
+
+    function populateOwnerFilter(){
+      if(!fOwner) return;
+      const selected = fOwner.value;
+      const owners=[...new Set(leads.map(l=>l.owner).filter(Boolean))].sort();
+      const options = ['<option value="">Todos atendentes</option>', ...owners.map(o=>`<option ${o===selected?'selected':''} value="${esc(o)}">${esc(o)}</option>`)];
+      fOwner.innerHTML = options.join('');
+    }
+
+    fOwner.addEventListener("change", renderList);
 
     /* ===== KANBAN ===== */
     const STAGES=["novo","qualificado","proposta","vendido","perdido"];
@@ -357,7 +382,7 @@
           const owner = l.owner ? `<div class="meta">Atendente: ${esc(l.owner)}</div>` : "";
           card.innerHTML=`<div class="name">${esc(l.name||"")}</div>
                           <div class="meta">${esc(l.email||"")}</div>${owner}`;
-          card.addEventListener("click", ()=> showLeadDetails(l));   // clique no card abre modal
+          card.addEventListener("click", ()=> showLeadDetails(l));
           body.appendChild(card);
         }
       }
@@ -381,6 +406,47 @@
     }
 
     function renderAll(){renderList();renderKanban();}
+
+    /* ===== EXPORTAR CSV ===== */
+    function toCsvRow(arr){return arr.map(v=>{
+      const s = (v==null?"":String(v)).replace(/"/g,'""');
+      return `"${s}"`;
+    }).join(",");}
+    function downloadCsv(filename, csv){
+      const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    exportBtn.addEventListener("click", ()=>{
+      const headers = ["id","nome","email","whatsapp","atendente","estagio","origem","data","notas","criado_em","atualizado_em"];
+      const rows = [headers];
+      // respeita filtro atual
+      const ownerFilter=fOwner?.value||"";
+      const q=(search?.value||"").toLowerCase();
+      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
+
+      const filtered = leads.filter(l=>{
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
+        const d=l.date?parseDateTs(l.date):l.updatedAt;
+        if(q && !txt.includes(q)) return false;
+        if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
+        if(sTs && d<sTs) return false;
+        if(eTs && d>eTs) return false;
+        return true;
+      });
+
+      for(const l of filtered){
+        rows.push([
+          l.id, l.name||"", l.email||"", l.phone||"", l.owner||"",
+          l.stage||"", l.source||"", l.date||"", l.notes||"",
+          new Date(l.createdAt).toISOString(), new Date(l.updatedAt).toISOString()
+        ]);
+      }
+      const csv = rows.map(toCsvRow).join("\n");
+      downloadCsv(`leads_pixelup_${new Date().toISOString().slice(0,10)}.csv`, csv);
+    });
 
     /* ===== FORM ===== */
     if(form){
@@ -407,7 +473,7 @@
       tabKanban.onclick=()=>{tabKanban.classList.add("active");tabList.classList.remove("active");tableWrap.style.display="none";kanbanEl.classList.add("visible");renderKanban();};
     }
 
-    [search,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",renderList));
+    [search,fOwner,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",renderList));
     renderAll();
   });
   </script>
