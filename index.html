@@ -7,21 +7,16 @@
   <style>
     *{box-sizing:border-box}
     body{
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-      background:
-        linear-gradient(rgba(8,12,18,.82), rgba(8,12,18,.82)),
-        url('pixelup-bg.jpg') center/cover fixed no-repeat;
+      margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:linear-gradient(rgba(8,12,18,.82), rgba(8,12,18,.82)), url('pixelup-bg.jpg') center/cover fixed no-repeat;
       color:#eaf6ff;
     }
     .topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:rgba(11,21,32,.75);border-bottom:1px solid #102437;backdrop-filter:blur(4px)}
     .topbar h1{margin:0;font-size:20px;font-weight:700}
     .topbar h1 span{color:#2bb8ff;text-shadow:0 0 14px rgba(43,184,255,.65)}
-
     .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
     .card{background:rgba(13,27,41,.85);backdrop-filter:blur(2px);border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
     h2{margin:0 0 12px;font-size:18px}
-
     .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
     .form-grid textarea{grid-column:1/-1;min-height:80px}
     .form-grid button{grid-column:1/-1}
@@ -29,32 +24,25 @@
     input::placeholder,textarea::placeholder{color:#7fa8c3}
     .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
     .btn.ghost{background:transparent;border-color:#17324a;color:#cde9ff}
-
     .list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px;flex-wrap:wrap}
     .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .filter-dates{display:flex;gap:8px;align-items:center}
-
     .table-wrap{overflow-x:auto;border:1px solid #102437;border-radius:12px}
     table{width:100%;border-collapse:collapse}
     th{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap;background:#0b1520;position:sticky;top:0}
-    td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:normal;word-break:break-word}
+    td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px}
     tr:hover{background:#0f1d2b}
     tr.clickable{cursor:pointer}
     .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
     a.quick{color:#9fd9ff;text-decoration:underline}
     a.quick:hover{text-decoration:none;opacity:.9}
-
-    /* badge qualificação */
     .qual-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #17324a;background:#0b1a27;color:#cde9ff}
     .q-quente{background:#3b0d0d;color:#ffd1d1;border-color:#5c1a1a}
     .q-morno{background:#3b2a0d;color:#ffe6b0;border-color:#6b4a12}
     .q-frio{ background:#0d264a;color:#d5e6ff;border-color:#123b70}
-
-    /* === KANBAN === */
     .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px}
     .view-switch .tab{background:#0f2132;border:1px solid #17324a;color:#cde9ff;padding:8px 12px;border-radius:10px;cursor:pointer}
     .view-switch .tab.active{background:#18a4ff;border-color:#18a4ff;color:#001727;font-weight:700}
-
     .kanban{display:none;gap:12px;align-items:flex-start}
     .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
     .kcol{background:rgba(13,27,41,.9);border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
@@ -62,41 +50,27 @@
     .khead .title{font-weight:700}
     .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px}
     .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
-
     .kcard{position:relative;background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab;overflow:hidden}
     .kcard:active{cursor:grabbing}
     .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
     .kcard .name{font-weight:600;margin-bottom:2px}
     .kcard .meta{opacity:.8}
-
-    /* Cores por coluna do funil */
-    .kcol[data-stage="novo"]      {border-color:#3b82f6;}
-    .kcol[data-stage="qualificado"]{border-color:#a855f7;}
-    .kcol[data-stage="proposta"]  {border-color:#f59e0b;}
-    .kcol[data-stage="vendido"]   {border-color:#22c55e;}
-    .kcol[data-stage="perdido"]   {border-color:#ef4444;}
+    .kcol[data-stage="novo"]{border-color:#3b82f6}
+    .kcol[data-stage="qualificado"]{border-color:#a855f7}
+    .kcol[data-stage="proposta"]{border-color:#f59e0b}
+    .kcol[data-stage="vendido"]{border-color:#22c55e}
+    .kcol[data-stage="perdido"]{border-color:#ef4444}
     .kcol[data-stage] .khead .count{color:#9fd9ff}
     .kcol[data-stage="novo"] .khead .title{color:#60a5fa}
     .kcol[data-stage="qualificado"] .khead .title{color:#c084fc}
     .kcol[data-stage="proposta"] .khead .title{color:#fbbf24}
     .kcol[data-stage="vendido"] .khead .title{color:#34d399}
     .kcol[data-stage="perdido"] .khead .title{color:#f87171}
-
-    /* WhatsApp no card */
-    .wa-icon{
-      position:absolute;top:6px;right:6px;z-index:50;
-      display:inline-flex;align-items:center;justify-content:center;
-      width:26px;height:26px;border-radius:50%;
-      background:#25D366;border:1px solid #0b1a27;
-      box-shadow:0 2px 4px rgba(0,0,0,.4);transition:all .2s;
-    }
+    .wa-icon{position:absolute;top:6px;right:6px;z-index:50;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#25D366;border:1px solid #0b1a27;box-shadow:0 2px 4px rgba(0,0,0,.4);transition:all .2s}
     .wa-icon:hover{transform:scale(1.1)}
     .wa-icon svg{width:14px;height:14px;display:block;fill:#fff}
-
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
-
-    /* === MODAL === */
     .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
     .modal-content{background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;width:100%;max-width:640px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
     .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
@@ -105,7 +79,7 @@
     .modal-close{background:transparent;border:1px solid #17324a;color:#cde9ff;border-radius:10px;padding:6px 10px;cursor:pointer}
     .dl{display:grid;grid-template-columns:140px 1fr;gap:8px;margin-top:8px}
     .dl b{color:#9fd9ff}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; opacity:.9}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;opacity:.9}
     .edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .edit-grid textarea{grid-column:1/-1;min-height:100px}
     .wa-block{margin-top:12px;border-top:1px solid #17324a;padding-top:10px;display:grid;gap:8px}
@@ -117,7 +91,6 @@
   <header class="topbar"><h1>CRM <span>PixelUp</span></h1></header>
 
   <main class="container">
-    <!-- Form -->
     <section class="card">
       <h2>Novo Lead</h2>
       <form id="leadForm" class="form-grid">
@@ -134,31 +107,29 @@
         <input id="owner" placeholder="Atendente (quem atende)" />
         <input id="source" placeholder="Origem" />
         <input id="date" type="date" />
+        <!-- Qualificação única com rótulos "Led ..." -->
         <select id="qualif">
           <option value="">Qualificação</option>
-          <option value="quente">Lead Quente</option>
-          <option value="morno">Lead Morno</option>
-          <option value="frio">Lead Frio</option>
+          <option value="quente">Led Quente</option>
+          <option value="morno">Led Morno</option>
+          <option value="frio">Led Frio</option>
         </select>
         <textarea id="notes" placeholder="Notas"></textarea>
         <button class="btn" type="submit">Salvar</button>
       </form>
     </section>
 
-    <!-- Lista + Kanban -->
     <section class="card">
       <div class="list-header">
         <h2>Leads</h2>
         <div class="filters">
           <input id="search" placeholder="Buscar..." />
-          <select id="filterOwner">
-            <option value="">Todos atendentes</option>
-          </select>
+          <select id="filterOwner"><option value="">Todos atendentes</option></select>
           <select id="filterQualif">
             <option value="">Todas qualificações</option>
-            <option value="quente">Lead Quente</option>
-            <option value="morno">Lead Morno</option>
-            <option value="frio">Lead Frio</option>
+            <option value="quente">Led Quente</option>
+            <option value="morno">Led Morno</option>
+            <option value="frio">Led Frio</option>
           </select>
           <div class="filter-dates">
             <span>De</span><input id="filterStart" type="date">
@@ -174,7 +145,6 @@
         <button id="tabKanban" class="tab">Kanban</button>
       </div>
 
-      <!-- LISTA -->
       <div class="table-wrap" id="tableWrap">
         <table id="leadsTable">
           <thead>
@@ -187,28 +157,12 @@
         </table>
       </div>
 
-      <!-- KANBAN -->
       <div id="kanban" class="kanban">
-        <div class="kcol" data-stage="novo">
-          <div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div>
-          <div class="kbody" id="col-novo"></div>
-        </div>
-        <div class="kcol" data-stage="qualificado">
-          <div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div>
-          <div class="kbody" id="col-qualificado"></div>
-        </div>
-        <div class="kcol" data-stage="proposta">
-          <div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div>
-          <div class="kbody" id="col-proposta"></div>
-        </div>
-        <div class="kcol" data-stage="vendido">
-          <div class="khead"><span class="title">Vendido</span><span class="count" id="count-vendido">0</span></div>
-          <div class="kbody" id="col-vendido"></div>
-        </div>
-        <div class="kcol" data-stage="perdido">
-          <div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div>
-          <div class="kbody" id="col-perdido"></div>
-        </div>
+        <div class="kcol" data-stage="novo"><div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div><div class="kbody" id="col-novo"></div></div>
+        <div class="kcol" data-stage="qualificado"><div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div><div class="kbody" id="col-qualificado"></div></div>
+        <div class="kcol" data-stage="proposta"><div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div><div class="kbody" id="col-proposta"></div></div>
+        <div class="kcol" data-stage="vendido"><div class="khead"><span class="title">Vendido</span><span class="count" id="count-vendido">0</span></div><div class="kbody" id="col-vendido"></div></div>
+        <div class="kcol" data-stage="perdido"><div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div><div class="kbody" id="col-perdido"></div></div>
       </div>
     </section>
   </main>
@@ -219,13 +173,32 @@
     const WA_TPL_KEY="pixelup_crm_wa_template_v1";
     let waTemplate = localStorage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}) e gostaria de ajudar. Podemos falar?";
     let leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
+
+    // ===== MIGRAÇÃO (converte tags antigas em qualificação única) =====
+    let migrated=false;
+    for(const l of leads){
+      if(!l.qualif){
+        const tags=(l.tags||[]).map(t=>String(t).toLowerCase());
+        if(tags.some(t=>t.includes("quente"))) l.qualif="quente";
+        else if(tags.some(t=>t.includes("morno"))) l.qualif="morno";
+        else if(tags.some(t=>t.includes("frio"))) l.qualif="frio";
+        else if(typeof l.qualificacao==="string"){ // caso tenha campo antigo
+          const q=l.qualificacao.toLowerCase();
+          if(q.includes("quente")) l.qualif="quente";
+          else if(q.includes("morno")) l.qualif="morno";
+          else if(q.includes("frio")) l.qualif="frio";
+        }
+        if(l.qualif) migrated=true;
+      }
+    }
+    if(migrated) localStorage.setItem(LS_KEY, JSON.stringify(leads));
     const persist=()=>localStorage.setItem(LS_KEY, JSON.stringify(leads));
 
     // helpers
-    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;","\">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
-    const qualName = q => q==="quente"?"Lead Quente": q==="morno"?"Lead Morno": q==="frio"?"Lead Frio":"";
+    const qualName = q => q==="quente"?"Led Quente": q==="morno"?"Led Morno": q==="frio"?"Led Frio":"";
     const qualClass = q => q?("q-"+q):"";
 
     function buildMessage(tpl, lead){
@@ -244,7 +217,7 @@
       return out;
     }
 
-    // DOM
+    // DOM refs
     const form=document.getElementById("leadForm");
     const tbody=document.querySelector("#leadsTable tbody");
     const search=document.getElementById("search");
@@ -259,7 +232,7 @@
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    /* ===== MODAL ===== */
+    // ===== MODAL =====
     function showLeadDetails(lead){
       const wa = digits(lead.phone||"");
       const waLink = wa ? `<a class="quick" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '-';
@@ -322,9 +295,9 @@
             <input  id="e_date"   type="date" />
             <select id="e_qualif">
               <option value="">Qualificação</option>
-              <option value="quente">Lead Quente</option>
-              <option value="morno">Lead Morno</option>
-              <option value="frio">Lead Frio</option>
+              <option value="quente">Led Quente</option>
+              <option value="morno">Led Morno</option>
+              <option value="frio">Led Frio</option>
             </select>
             <textarea id="e_notes" placeholder="Notas"></textarea>
             <div style="grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end">
@@ -342,8 +315,8 @@
 
       const quicks = {
         oi: "Olá {{nome}}, tudo bem? Aqui é {{atendente}} da PixelUp ({{qualificacao}}). Recebemos seu contato via {{origem}} 🙂",
-        proposta: "Oi {{nome}}! Acabei de enviar a proposta no seu e-mail {{email}} ({{qualificacao}}). Se preferir, posso resumir por aqui!",
-        follow: "Oi {{nome}}, passando para saber se conseguiu ver nossa proposta. Continuo à disposição! ({{qualificacao}})"
+        proposta: "Oi {{nome}}! Enviei a proposta no seu e-mail {{email}} ({{qualificacao}}). Se preferir, resumo por aqui.",
+        follow: "Oi {{nome}}, viu nossa proposta? Fico à disposição. ({{qualificacao}})"
       };
 
       function fillDefault(){ waText.value = buildMessage(waTemplate, lead); }
@@ -402,7 +375,7 @@
       document.body.appendChild(modal);
     }
 
-    /* ===== LISTA ===== */
+    // ===== LISTA =====
     function renderList(){
       tbody.innerHTML="";
       const q=(search?.value||"").toLowerCase();
@@ -423,21 +396,20 @@
 
       for(const l of filtered){
         const tr=document.createElement("tr");
-        tr.className="clickable";
-        tr.dataset.id=l.id;
+        tr.className="clickable"; tr.dataset.id=l.id;
 
-        const mailCell = l.email ? `<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${esc(l.email)}</a>` : "";
+        const mailCell = l.email ? `<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${l.email}</a>` : "";
         const waDigits = digits(l.phone||"");
-        const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(l.phone)}</a>` : esc(l.phone||"");
+        const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.phone}</a>` : (l.phone||"");
 
-        tr.innerHTML=`<td>${esc(l.name)}</td>
+        tr.innerHTML=`<td>${l.name||""}</td>
                       <td>${mailCell}</td>
                       <td>${waCell}</td>
-                      <td>${esc(l.owner||"")}</td>
-                      <td>${esc(l.stage)}</td>
-                      <td>${esc(l.source||"")}</td>
-                      <td>${esc(l.date||"")}</td>
-                      <td><span class="qual-badge ${qualClass(l.qualif)}">${esc(qualName(l.qualif))||""}</span></td>
+                      <td>${l.owner||""}</td>
+                      <td>${l.stage||""}</td>
+                      <td>${l.source||""}</td>
+                      <td>${l.date||""}</td>
+                      <td><span class="qual-badge ${qualClass(l.qualif)}">${qualName(l.qualif)||""}</span></td>
                       <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
         const td=document.createElement("td"); td.className="actions-cell";
         const del=document.createElement("button"); del.textContent="Excluir";
@@ -451,8 +423,7 @@
 
     document.querySelector("#leadsTable tbody").addEventListener("click", (e)=>{
       if(e.target.closest(".actions-cell")) return;
-      const tr=e.target.closest("tr");
-      if(!tr) return;
+      const tr=e.target.closest("tr"); if(!tr) return;
       const lead=leads.find(x=>x.id===tr.dataset.id);
       if(lead) showLeadDetails(lead);
     });
@@ -460,15 +431,14 @@
     function populateOwnerFilter(){
       const selected = fOwner.value;
       const owners=[...new Set(leads.map(l=>l.owner).filter(Boolean))].sort();
-      const options = ['<option value="">Todos atendentes</option>', ...owners.map(o=>`<option ${o===selected?'selected':''} value="${esc(o)}">${esc(o)}</option>`)];
+      const options = ['<option value="">Todos atendentes</option>', ...owners.map(o=>`<option ${o===selected?'selected':''} value="${o}">${o}</option>`)];
       fOwner.innerHTML = options.join('');
     }
     fOwner.addEventListener("change", renderList);
     fQualif.addEventListener("change", renderList);
 
-    /* ===== KANBAN ===== */
+    // ===== KANBAN =====
     const STAGES=["novo","qualificado","proposta","vendido","perdido"];
-
     function renderKanban(){
       for(const stage of STAGES){
         const body=document.getElementById("col-"+stage);
@@ -480,37 +450,20 @@
           const card=document.createElement("div");
           card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
 
-          const nameEl=document.createElement("div");
-          nameEl.className="name"; nameEl.textContent=l.name||"";
-          const metaEmail=document.createElement("div");
-          metaEmail.className="meta"; metaEmail.textContent=l.email||"";
+          const nameEl=document.createElement("div"); nameEl.className="name"; nameEl.textContent=l.name||"";
+          const metaEmail=document.createElement("div"); metaEmail.className="meta"; metaEmail.textContent=l.email||"";
           card.appendChild(nameEl); card.appendChild(metaEmail);
-          if(l.owner){
-            const metaOwner=document.createElement("div");
-            metaOwner.className="meta"; metaOwner.textContent="Atendente: "+l.owner;
-            card.appendChild(metaOwner);
-          }
-          if(l.qualif){
-            const qb=document.createElement("span");
-            qb.className="qual-badge "+qualClass(l.qualif);
-            qb.textContent=qualName(l.qualif);
-            card.appendChild(qb);
-          }
+          if(l.owner){ const m=document.createElement("div"); m.className="meta"; m.textContent="Atendente: "+l.owner; card.appendChild(m); }
+          if(l.qualif){ const qb=document.createElement("span"); qb.className="qual-badge "+qualClass(l.qualif); qb.textContent=qualName(l.qualif); card.appendChild(qb); }
 
-          // WhatsApp ícone com mensagem padrão
           const wa = digits(l.phone||"");
           if(wa){
             const a=document.createElement("a");
             a.className="wa-icon";
             a.href=`https://wa.me/${wa}?text=${encodeURIComponent(buildMessage(waTemplate, l))}`;
-            a.target="_blank"; a.rel="noopener";
-            a.title="Abrir WhatsApp";
+            a.target="_blank"; a.rel="noopener"; a.title="Abrir WhatsApp";
             a.addEventListener("click", ev=>ev.stopPropagation());
-            a.innerHTML = `
-              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M16 0a16 16 0 1 0 0 32 16 16 0 0 0 0-32z" fill="#25D366"/>
-                <path d="M22.7 18.6c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.1.2-1.9 0-.4-.1-1-.3-2-.7-3.6-1.6-5.9-5.2-6.1-5.5-.2-.3-1.5-2-1.5-3.8 0-1.9 1-2.7 1.3-3 .3-.3.7-.4 1-.4h.7c.2 0 .6 0 .9.7.3.7 1.1 2.6 1.2 2.8.1.2.1.4 0 .6-.1.3-.2.4-.4.7-.2.2-.4.5-.5.7-.2.2-.4.5-.2.8.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.9 1.8.3.1.6.1.8-.1.2-.2 1-.9 1.2-1.2.3-.3.5-.2.8-.1.3.1 1.9.9 2.2 1.1.3.2.5.3.6.5.1.2.1.6 0 .9z" fill="#fff"/>
-              </svg>`;
+            a.innerHTML = `<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 0a16 16 0 1 0 0 32 16 16 0 0 0 0-32z" fill="#25D366"/><path d="M22.7 18.6c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.1.2-1.9 0-.4-.1-1-.3-2-.7-3.6-1.6-5.9-5.2-6.1-5.5-.2-.3-1.5-2-1.5-3.8 0-1.9 1-2.7 1.3-3 .3-.3.7-.4 1-.4h.7c.2 0 .6 0 .9.7.3.7 1.1 2.6 1.2 2.8.1.2.1.4 0 .6-.1.3-.2.4-.4.7-.2.2-.4.5-.5.7-.2.2-.4.5-.2.8.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.9 1.8.3.1.6.1.8-.1.2-.2 1-.9 1.2-1.2.3-.3.5-.2.8-.1.3.1 1.9.9 2.2 1.1.3.2.5.3.6.5.1.2.1.6 0 .9z" fill="#fff"/></svg>`;
             card.appendChild(a);
           }
 
@@ -520,7 +473,6 @@
       }
       bindDnD();
     }
-
     function bindDnD(){
       document.querySelectorAll(".kcard").forEach(card=>{
         card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", card.dataset.id); });
@@ -539,7 +491,7 @@
 
     function renderAll(){renderList();renderKanban();}
 
-    /* ===== EXPORT CSV ===== */
+    // ===== EXPORT CSV =====
     function toCsvRow(arr){return arr.map(v=>('"'+String(v??"").replace(/"/g,'""')+'"')).join(",");}
     function downloadCsv(filename, csv){
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
@@ -577,7 +529,7 @@
       downloadCsv(`leads_pixelup_${new Date().toISOString().slice(0,10)}.csv`, csv);
     });
 
-    /* ===== FORM ===== */
+    // ===== FORM =====
     if(form){
       form.addEventListener("submit", e=>{
         e.preventDefault();
@@ -593,14 +545,14 @@
           notes:document.getElementById("notes").value.trim(),
           createdAt:Date.now(),updatedAt:Date.now()};
         if(!lead.name){alert("Informe o nome");return;}
-        leads.push(lead);persist();form.reset();renderAll();
+        leads.push(lead); persist(); form.reset(); renderAll();
       });
     }
 
-    /* ===== TEMPLATE PADRÃO ===== */
+    // ===== TEMPLATE PADRÃO =====
     btnTemplate.addEventListener("click", ()=>{
       const novo = prompt(
-        "Edite o texto padrão do WhatsApp.\nVocê pode usar: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}",
+        "Edite o texto padrão do WhatsApp.\nPlaceholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}",
         waTemplate
       );
       if(novo!=null){
@@ -610,7 +562,7 @@
       }
     });
 
-    /* ===== ABAS ===== */
+    // ===== ABAS =====
     tabList.onclick=()=>{tabList.classList.add("active");tabKanban.classList.remove("active");tableWrap.style.display="block";kanbanEl.classList.remove("visible");};
     tabKanban.onclick=()=>{tabKanban.classList.add("active");tabList.classList.remove("active");tableWrap.style.display="none";kanbanEl.classList.add("visible");renderKanban();};
 
