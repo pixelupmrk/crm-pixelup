@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CRM PixelUp — Stable</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
+    .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
+    .topbar h1{margin:0;font-size:20px;font-weight:700}
+    .topbar h1 span{color:#2bb8ff;text-shadow:0 0 12px rgba(43,184,255,.6)}
+    .actions{display:flex;gap:10px;align-items:center}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr;gap:18px}
+    .card{background:#0d1b29;border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+    h2{margin:0 0 12px 0;font-size:18px}
+    .form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .form-grid textarea{grid-column:1/-1;min-height:80px}
+    .form-grid button{grid-column:1/-1}
+    input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
+    input::placeholder,textarea::placeholder{color:#7fa8c3}
+    .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .list-header{display:flex;gap:12px;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .filters{display:flex;gap:10px}
+    .table-wrap{overflow:auto;border:1px solid #102437;border-radius:12px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap}
+    th{background:#0b1520;position:sticky;top:0}
+    tr:hover{background:#0f1d2b}
+    .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
+    .actions-cell button.danger{border-color:#ff4d4d;color:#ff7878}
+    .footer{padding:20px;text-align:center;color:#86c8ea;opacity:.8}
+    @media (max-width:800px){.form-grid{grid-template-columns:1fr}.filters{flex-direction:column;align-items:stretch}}
+    .tag{padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #17324a;background:#0f2132;color:#bfe6ff}
+    .warn{background:#2b1a00;border:1px solid #5a3b00;color:#ffd699;padding:10px;border-radius:10px;margin-bottom:12px;display:none}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>CRM <span>PixelUp</span></h1>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div id="lsWarning" class="warn">⚠️ Seu navegador bloqueou o armazenamento (modo anônimo/extensões). Dados salvos via cookie.</div>
+      <h2>Novo Lead</h2>
+      <form id="leadForm" class="form-grid">
+        <input id="name" placeholder="Nome" required />
+        <input id="email" type="email" placeholder="E-mail" />
+        <input id="phone" placeholder="WhatsApp" />
+        <select id="stage">
+          <option value="novo">Novo</option>
+          <option value="qualificado">Qualificado</option>
+          <option value="proposta">Proposta</option>
+          <option value="ganho">Ganho</option>
+          <option value="perdido">Perdido</option>
+        </select>
+        <input id="source" placeholder="Origem (Instagram, Indicação...)" />
+        <textarea id="notes" placeholder="Notas"></textarea>
+        <button class="btn" type="submit">Salvar</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="list-header">
+        <h2>Leads</h2>
+        <div class="filters">
+          <input id="search" placeholder="Buscar por nome, e-mail, telefone..." />
+          <select id="filterStage">
+            <option value="">Todos os estágios</option>
+            <option value="novo">Novo</option>
+            <option value="qualificado">Qualificado</option>
+            <option value="proposta">Proposta</option>
+            <option value="ganho">Ganho</option>
+            <option value="perdido">Perdido</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="leadsTable">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>WhatsApp</th>
+              <th>Estágio</th>
+              <th>Origem</th>
+              <th>Atualizado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Feito com 💙 pela PixelUp — Demo localStorage (com fallback em cookie)</p>
+  </footer>
+
+  <script>
+  (function(){
+    var LS_KEY = "pixelup_crm_leads_v1";
+    var form = document.getElementById("leadForm");
+    var tbody = document.querySelector("#leadsTable tbody");
+    var search = document.getElementById("search");
+    var filterStage = document.getElementById("filterStage");
+    var lsWarning = document.getElementById("lsWarning");
+
+    // Detecta se localStorage funciona
+    var storageMode = "localStorage";
+    try { localStorage.setItem("__t__","1"); localStorage.removeItem("__t__"); }
+    catch(e){ storageMode = "cookie"; lsWarning.style.display="block"; }
+
+    function saveBlob(key, val){
+      if(storageMode==="localStorage"){
+        try{ localStorage.setItem(key, val); }catch(e){}
+      }else{
+        var v = encodeURIComponent(val);
+        document.cookie = key+"="+v+"; path=/; max-age=31536000; samesite=lax";
+      }
+    }
+    function loadBlob(key){
+      if(storageMode==="localStorage"){
+        try{ return localStorage.getItem(key); }catch(e){ return null; }
+      }else{
+        var m = document.cookie.match(new RegExp('(?:^|; )'+key+'=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : null;
+      }
+    }
+
+    var leads;
+    try { leads = JSON.parse(loadBlob(LS_KEY) || "[]"); } catch(e){ leads = []; }
+
+    function esc(s){
+      return String(s||"").replace(/[&<>\"']/g, function(m){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]; });
+    }
+
+    function render(){
+      var q = (search?.value||"").toLowerCase();
+      var stage = filterStage?.value||"";
+      var filtered = leads.filter(function(l){
+        return (!stage || l.stage===stage) && (
+          (l.name||"").toLowerCase().includes(q) ||
+          (l.email||"").toLowerCase().includes(q) ||
+          (l.phone||"").toLowerCase().includes(q) ||
+          (l.source||"").toLowerCase().includes(q) ||
+          (l.notes||"").toLowerCase().includes(q)
+        );
+      });
+      tbody.innerHTML="";
+      filtered.forEach(function(l){
+        var tr=document.createElement("tr");
+        tr.innerHTML="<td>"+esc(l.name)+"</td>"+
+                     "<td>"+esc(l.email||"")+"</td>"+
+                     "<td>"+esc(l.phone||"")+"</td>"+
+                     "<td>"+esc(l.stage||"novo")+"</td>"+
+                     "<td>"+esc(l.source||"")+"</td>"+
+                     "<td>"+new Date(l.updatedAt).toLocaleString()+"</td>"+
+                     "<td class='actions-cell'><button onclick=''>Editar</button><button class='danger' onclick=''>Excluir</button></td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    function persist(){ saveBlob(LS_KEY, JSON.stringify(leads)); }
+
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      var lead = {
+        id: Date.now(),
+        name: document.getElementById("name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        stage: document.getElementById("stage").value,
+        source: document.getElementById("source").value.trim(),
+        notes: document.getElementById("notes").value.trim(),
+        updatedAt: Date.now()
+      };
+      if(!lead.name){ alert("Informe ao menos o nome."); return; }
+      leads.push(lead); persist(); form.reset(); render();
+    });
+
+    search.addEventListener("input", render);
+    filterStage.addEventListener("change", render);
+
+    render();
+  })();
+  </script>
+</body>
+</html>
