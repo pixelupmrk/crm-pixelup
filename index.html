@@ -6,18 +6,44 @@
   <title>CRM PixelUp — Lista + Kanban</title>
   <style>
     *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0a0f14;color:#eaf6ff}
-    .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#0b1520;border-bottom:1px solid #102437}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+
+      /* fundo imagem + overlay escuro */
+      background:
+        linear-gradient(rgba(8,12,18,.82), rgba(8,12,18,.82)),
+        url('assets/pixelup-bg.jpg') center/cover fixed no-repeat;
+
+      color:#eaf6ff;
+    }
+    .topbar{
+      position:sticky;top:0;
+      display:flex;justify-content:space-between;align-items:center;
+      padding:14px 20px;
+      background:rgba(11,21,32,.75);
+      border-bottom:1px solid #102437;
+      backdrop-filter:blur(4px);
+    }
     .topbar h1{margin:0;font-size:20px;font-weight:700}
-    .topbar h1 span{color:#2bb8ff;text-shadow:0 0 12px rgba(43,184,255,.6)}
+    .topbar h1 span{color:#2bb8ff;text-shadow:0 0 14px rgba(43,184,255,.65)}
+
     .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
-    .card{background:#0d1b29;border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+    .card{
+      background:rgba(13,27,41,.85);
+      border:1px solid #102437;border-radius:14px;
+      padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25);
+      backdrop-filter:blur(2px);
+    }
     h2{margin:0 0 12px;font-size:18px}
 
     .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
     .form-grid textarea{grid-column:1/-1;min-height:80px}
     .form-grid button{grid-column:1/-1}
-    input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
+    input,select,textarea{
+      background:#0f2132;border:1px solid #17324a;border-radius:10px;
+      padding:10px 12px;color:#d9f1ff;outline:none
+    }
     input::placeholder,textarea::placeholder{color:#7fa8c3}
     .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
 
@@ -40,7 +66,7 @@
 
     .kanban{display:none;gap:12px;align-items:flex-start}
     .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
-    .kcol{background:#0d1b29;border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
+    .kcol{background:rgba(13,27,41,.9);border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
     .khead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #102437}
     .khead .title{font-weight:700}
     .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px;color:#9fd9ff}
@@ -57,7 +83,7 @@
   <header class="topbar"><h1>CRM <span>PixelUp</span></h1></header>
 
   <main class="container">
-    <!-- Formulário -->
+    <!-- Form -->
     <section class="card">
       <h2>Novo Lead</h2>
       <form id="leadForm" class="form-grid">
@@ -134,26 +160,12 @@
     </section>
   </main>
 
-  <!-- Script DEFER para evitar rodar antes do DOM -->
   <script>
   document.addEventListener("DOMContentLoaded", function(){
-    // ===== Utils =====
-    function esc(s){ return String(s||"").replace(/[&<>\"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
-    function parseDateTs(str,endOfDay){
-      if(!str) return null;
-      let y,m,d;
-      if(str.includes("-")){ const p=str.split("-"); if(p.length!==3) return null; y=+p[0]; m=+p[1]-1; d=+p[2]; }
-      else if(str.includes("/")){ const p=str.split("/"); if(p.length!==3) return null; d=+p[0]; m=+p[1]-1; y=+p[2]; }
-      else return null;
-      return new Date(y,m,d, endOfDay?23:0, endOfDay?59:0, endOfDay?59:0, endOfDay?999:0).getTime();
-    }
-
-    // ===== Estado =====
     const LS_KEY="pixelup_crm_leads_v1";
     let leads=[]; try{ leads=JSON.parse(localStorage.getItem(LS_KEY)||"[]"); }catch(e){ leads=[]; }
-    const persist=()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(leads)); }catch(e){} };
+    const persist=()=>localStorage.setItem(LS_KEY, JSON.stringify(leads));
 
-    // ===== Elementos (sempre verificados) =====
     const form=document.getElementById("leadForm");
     const tbody=document.querySelector("#leadsTable tbody");
     const search=document.getElementById("search");
@@ -164,48 +176,35 @@
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    // ===== Lista =====
+    function esc(s){return String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+    function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
+
     function renderList(){
-      if(!tbody) return;
-      const q=(search?.value||"").toLowerCase();
-      const sTs=parseDateTs(fStart?.value);
-      const eTs=parseDateTs(fEnd?.value,true);
       tbody.innerHTML="";
+      const q=(search?.value||"").toLowerCase();
+      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
       for(const l of leads){
         const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
         const d=l.date?parseDateTs(l.date):l.updatedAt;
-        const inDate=(sTs==null||d>=sTs)&&(eTs==null||d<=eTs);
         if(q && !txt.includes(q)) continue;
-        if(!inDate) continue;
-
+        if(sTs && d<sTs) continue; if(eTs && d>eTs) continue;
         const tr=document.createElement("tr");
-        tr.innerHTML=
-          `<td>${esc(l.name)}</td>
-           <td>${esc(l.email||"")}</td>
-           <td>${esc(l.phone||"")}</td>
-           <td>${esc(l.stage||"novo")}</td>
-           <td>${esc(l.source||"")}</td>
-           <td>${esc(l.date||"")}</td>
-           <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
+        tr.innerHTML=`<td>${esc(l.name)}</td><td>${esc(l.email||"")}</td><td>${esc(l.phone||"")}</td><td>${esc(l.stage)}</td><td>${esc(l.source||"")}</td><td>${esc(l.date||"")}</td><td>${new Date(l.updatedAt).toLocaleString()}</td>`;
         const td=document.createElement("td"); td.className="actions-cell";
         const del=document.createElement("button"); del.textContent="Excluir";
-        del.onclick=()=>{ leads=leads.filter(x=>x.id!==l.id); persist(); renderAll(); };
-        td.appendChild(del); tr.appendChild(td);
-        tbody.appendChild(tr);
+        del.onclick=()=>{leads=leads.filter(x=>x.id!==l.id);persist();renderAll();};
+        td.appendChild(del); tr.appendChild(td); tbody.appendChild(tr);
       }
     }
 
-    // ===== Kanban =====
     function renderKanban(){
-      if(!kanbanEl) return;
       const stages=["novo","qualificado","proposta","ganho","perdido"];
       for(const stage of stages){
         const body=document.getElementById("col-"+stage);
         const count=document.getElementById("count-"+stage);
-        if(!body) continue;
         body.innerHTML="";
-        const items=leads.filter(x=> (x.stage||"novo")===stage );
-        if(count) count.textContent=items.length;
+        const items=leads.filter(x=>(x.stage||"novo")===stage);
+        count.textContent=items.length;
         for(const l of items){
           const card=document.createElement("div");
           card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
@@ -217,71 +216,42 @@
     }
 
     function bindDnD(){
-      const cards=document.querySelectorAll(".kcard");
-      cards.forEach(card=>{
-        card.addEventListener("dragstart", e=>{
-          e.dataTransfer.setData("text/plain", card.dataset.id);
-        });
+      document.querySelectorAll(".kcard").forEach(card=>{
+        card.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", card.dataset.id); });
       });
-      const cols=document.querySelectorAll(".kbody");
-      cols.forEach(col=>{
+      document.querySelectorAll(".kbody").forEach(col=>{
         col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("kdrop"); });
         col.addEventListener("dragleave", ()=>col.classList.remove("kdrop"));
         col.addEventListener("drop", e=>{
           e.preventDefault(); col.classList.remove("kdrop");
           const id=e.dataTransfer.getData("text/plain");
           const l=leads.find(x=>x.id===id);
-          if(!l) return;
-          const newStage=col.parentElement?.dataset.stage;
-          if(newStage && l.stage!==newStage){
-            l.stage=newStage; l.updatedAt=Date.now();
-            persist(); renderAll();
-          }
+          if(l){ l.stage=col.parentElement.dataset.stage; l.updatedAt=Date.now(); persist(); renderAll(); }
         });
       });
     }
 
-    function renderAll(){ renderList(); renderKanban(); }
+    function renderAll(){renderList();renderKanban();}
 
-    // ===== Form =====
     if(form){
       form.addEventListener("submit", e=>{
         e.preventDefault();
-        const lead={
-          id:String(Date.now()),
-          name:document.getElementById("name")?.value.trim()||"",
-          email:document.getElementById("email")?.value.trim()||"",
-          phone:document.getElementById("phone")?.value.trim()||"",
-          stage:document.getElementById("stage")?.value||"novo",
-          source:document.getElementById("source")?.value.trim()||"",
-          date:document.getElementById("date")?.value||"",
-          notes:document.getElementById("notes")?.value.trim()||"",
-          createdAt:Date.now(),
-          updatedAt:Date.now()
-        };
-        if(!lead.name){ alert("Informe ao menos o nome."); return; }
-        leads.push(lead); persist(); form.reset(); renderAll();
+        const lead={id:String(Date.now()),name:document.getElementById("name").value.trim(),
+          email:document.getElementById("email").value.trim(),phone:document.getElementById("phone").value.trim(),
+          stage:document.getElementById("stage").value,source:document.getElementById("source").value.trim(),
+          date:document.getElementById("date").value,notes:document.getElementById("notes").value.trim(),
+          createdAt:Date.now(),updatedAt:Date.now()};
+        if(!lead.name){alert("Informe o nome");return;}
+        leads.push(lead);persist();form.reset();renderAll();
       });
     }
 
-    // ===== Abas =====
-    if(tabList && tabKanban && tableWrap && kanbanEl){
-      tabList.onclick=()=>{
-        tabList.classList.add("active"); tabKanban.classList.remove("active");
-        tableWrap.style.display="block"; kanbanEl.classList.remove("visible");
-      };
-      tabKanban.onclick=()=>{
-        tabKanban.classList.add("active"); tabList.classList.remove("active");
-        tableWrap.style.display="none"; kanbanEl.classList.add("visible");
-        renderKanban();
-      };
+    if(tabList&&tabKanban&&tableWrap&&kanbanEl){
+      tabList.onclick=()=>{tabList.classList.add("active");tabKanban.classList.remove("active");tableWrap.style.display="block";kanbanEl.classList.remove("visible");};
+      tabKanban.onclick=()=>{tabKanban.classList.add("active");tabList.classList.remove("active");tableWrap.style.display="none";kanbanEl.classList.add("visible");renderKanban();};
     }
 
-    // Filtros (se existirem)
-    const hook = el => { if(!el) return; el.addEventListener("input", renderList); el.addEventListener("change", renderList); };
-    hook(search); hook(fStart); hook(fEnd);
-
-    // Start
+    [search,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",renderList));
     renderAll();
   });
   </script>
