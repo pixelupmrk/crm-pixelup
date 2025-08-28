@@ -36,6 +36,7 @@
     input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
     input::placeholder,textarea::placeholder{color:#7fa8c3}
     .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.ghost{background:transparent;border-color:#17324a;color:#cde9ff}
 
     .list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px;flex-wrap:wrap}
     .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -56,33 +57,52 @@
 
     .kanban{display:none;gap:12px;align-items:flex-start}
     .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
-    .kcol{background:rgba(13,27,41,.9);border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
+    .kcol{
+      background:rgba(13,27,41,.9);border:1px solid #102437;border-radius:12px;
+      min-height:300px;max-height:70vh;display:flex;flex-direction:column;
+    }
     .khead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #102437}
     .khead .title{font-weight:700}
-    .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px;color:#9fd9ff}
+    .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px}
     .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
     .kcard{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab}
     .kcard:active{cursor:grabbing}
     .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
 
+    /* Cores por coluna */
+    .kcol[data-stage="novo"]      {border-color:#3b82f6;}
+    .kcol[data-stage="qualificado"]{border-color:#a855f7;}
+    .kcol[data-stage="proposta"]  {border-color:#f59e0b;}
+    .kcol[data-stage="vendido"]   {border-color:#22c55e;}
+    .kcol[data-stage="perdido"]   {border-color:#ef4444;}
+    .kcol[data-stage] .khead .count{color:#9fd9ff}
+    .kcol[data-stage="novo"] .khead .title{color:#60a5fa}
+    .kcol[data-stage="qualificado"] .khead .title{color:#c084fc}
+    .kcol[data-stage="proposta"] .khead .title{color:#fbbf24}
+    .kcol[data-stage="vendido"] .khead .title{color:#34d399}
+    .kcol[data-stage="perdido"] .khead .title{color:#f87171}
+
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
 
-    /* === MODAL DETALHES === */
+    /* === MODAL DETALHES / EDIÇÃO === */
     .modal{
       position:fixed;inset:0;background:rgba(0,0,0,.6);
       display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;
     }
     .modal-content{
       background:#0f2132;color:#eaf6ff;border:1px solid #17324a;border-radius:14px;
-      width:100%;max-width:520px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);
+      width:100%;max-width:560px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5);
     }
-    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
     .modal-header h3{margin:0;font-size:18px}
+    .modal-actions{display:flex;gap:8px}
     .modal-close{background:transparent;border:1px solid #17324a;color:#cde9ff;border-radius:10px;padding:6px 10px;cursor:pointer}
     .dl{display:grid;grid-template-columns:120px 1fr;gap:8px;margin-top:8px}
     .dl b{color:#9fd9ff}
     .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; opacity:.9}
+    .edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .edit-grid textarea{grid-column:1/-1;min-height:100px}
   </style>
 </head>
 <body>
@@ -100,9 +120,10 @@
           <option value="novo">Novo</option>
           <option value="qualificado">Qualificado</option>
           <option value="proposta">Proposta</option>
-          <option value="ganho">Ganho</option>
+          <option value="vendido">Vendido</option>
           <option value="perdido">Perdido</option>
         </select>
+        <input id="owner" placeholder="Atendente (quem atende)" />
         <input id="source" placeholder="Origem" />
         <input id="date" type="date" />
         <textarea id="notes" placeholder="Notas"></textarea>
@@ -133,7 +154,7 @@
         <table id="leadsTable">
           <thead>
             <tr>
-              <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Estágio</th><th>Origem</th><th>Data</th><th>Atualizado</th><th>Ações</th>
+              <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Atendente</th><th>Estágio</th><th>Origem</th><th>Data</th><th>Atualizado</th><th>Ações</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -154,9 +175,9 @@
           <div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div>
           <div class="kbody" id="col-proposta"></div>
         </div>
-        <div class="kcol" data-stage="ganho">
-          <div class="khead"><span class="title">Ganho</span><span class="count" id="count-ganho">0</span></div>
-          <div class="kbody" id="col-ganho"></div>
+        <div class="kcol" data-stage="vendido">
+          <div class="khead"><span class="title">Vendido</span><span class="count" id="count-vendido">0</span></div>
+          <div class="kbody" id="col-vendido"></div>
         </div>
         <div class="kcol" data-stage="perdido">
           <div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div>
@@ -193,12 +214,16 @@
         <div class="modal-content" role="dialog" aria-modal="true">
           <div class="modal-header">
             <h3>Detalhes do Lead</h3>
-            <button class="modal-close" id="closeModalBtn">Fechar</button>
+            <div class="modal-actions">
+              <button class="btn ghost" id="editBtn">Editar</button>
+              <button class="modal-close" id="closeModalBtn">Fechar</button>
+            </div>
           </div>
-          <div class="dl">
+          <div id="detailsView" class="dl">
             <b>Nome</b> <div>${esc(lead.name)}</div>
             <b>E-mail</b> <div>${esc(lead.email||"")}</div>
             <b>WhatsApp</b> <div class="mono">${esc(lead.phone||"")}</div>
+            <b>Atendente</b> <div>${esc(lead.owner||"")}</div>
             <b>Estágio</b> <div>${esc(lead.stage)}</div>
             <b>Origem</b> <div>${esc(lead.source||"")}</div>
             <b>Data</b> <div>${esc(lead.date||"")}</div>
@@ -206,11 +231,74 @@
             <b>Atualizado</b> <div>${new Date(lead.updatedAt).toLocaleString()}</div>
             <b>Notas</b> <div style="white-space:pre-wrap">${esc(lead.notes||"-")}</div>
           </div>
+
+          <form id="editForm" class="edit-grid" style="display:none;margin-top:8px">
+            <input  id="e_name"  placeholder="Nome" />
+            <input  id="e_email" placeholder="E-mail" />
+            <input  id="e_phone" placeholder="WhatsApp" />
+            <input  id="e_owner" placeholder="Atendente" />
+            <select id="e_stage">
+              <option value="novo">Novo</option>
+              <option value="qualificado">Qualificado</option>
+              <option value="proposta">Proposta</option>
+              <option value="vendido">Vendido</option>
+              <option value="perdido">Perdido</option>
+            </select>
+            <input  id="e_source" placeholder="Origem" />
+            <input  id="e_date"   type="date" />
+            <textarea id="e_notes" placeholder="Notas"></textarea>
+            <div style="grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end">
+              <button type="button" class="btn ghost" id="cancelEdit">Cancelar</button>
+              <button type="submit" class="btn">Salvar alterações</button>
+            </div>
+          </form>
         </div>`;
+
       const close = () => modal.remove();
       modal.addEventListener("click", e=>{ if(e.target===modal) close(); });
       modal.querySelector("#closeModalBtn").addEventListener("click", close);
       document.addEventListener("keydown", function escKey(ev){ if(ev.key==="Escape"){ close(); document.removeEventListener("keydown", escKey);} });
+
+      // Alternar detalhes/edição
+      const details = modal.querySelector("#detailsView");
+      const formE = modal.querySelector("#editForm");
+      const editBtn = modal.querySelector("#editBtn");
+      const fillEdit = () => {
+        modal.querySelector("#e_name").value  = lead.name||"";
+        modal.querySelector("#e_email").value = lead.email||"";
+        modal.querySelector("#e_phone").value = lead.phone||"";
+        modal.querySelector("#e_owner").value = lead.owner||"";
+        modal.querySelector("#e_stage").value = lead.stage||"novo";
+        modal.querySelector("#e_source").value= lead.source||"";
+        modal.querySelector("#e_date").value  = lead.date||"";
+        modal.querySelector("#e_notes").value = lead.notes||"";
+      };
+      editBtn.addEventListener("click", ()=>{
+        fillEdit();
+        details.style.display="none";
+        formE.style.display="grid";
+      });
+      modal.querySelector("#cancelEdit").addEventListener("click", ()=>{
+        formE.reset();
+        formE.style.display="none";
+        details.style.display="grid";
+      });
+      formE.addEventListener("submit",(ev)=>{
+        ev.preventDefault();
+        lead.name   = modal.querySelector("#e_name").value.trim();
+        lead.email  = modal.querySelector("#e_email").value.trim();
+        lead.phone  = modal.querySelector("#e_phone").value.trim();
+        lead.owner  = modal.querySelector("#e_owner").value.trim();
+        lead.stage  = modal.querySelector("#e_stage").value;
+        lead.source = modal.querySelector("#e_source").value.trim();
+        lead.date   = modal.querySelector("#e_date").value;
+        lead.notes  = modal.querySelector("#e_notes").value.trim();
+        lead.updatedAt = Date.now();
+        persist();
+        close();
+        renderAll();
+      });
+
       document.body.appendChild(modal);
     }
 
@@ -220,7 +308,7 @@
       const q=(search?.value||"").toLowerCase();
       const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
       for(const l of leads){
-        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")).toLowerCase();
         const d=l.date?parseDateTs(l.date):l.updatedAt;
         if(q && !txt.includes(q)) continue;
         if(sTs && d<sTs) continue; if(eTs && d>eTs) continue;
@@ -231,6 +319,7 @@
         tr.innerHTML=`<td>${esc(l.name)}</td>
                       <td>${esc(l.email||"")}</td>
                       <td>${esc(l.phone||"")}</td>
+                      <td>${esc(l.owner||"")}</td>
                       <td>${esc(l.stage)}</td>
                       <td>${esc(l.source||"")}</td>
                       <td>${esc(l.date||"")}</td>
@@ -253,9 +342,10 @@
     });
 
     /* ===== KANBAN ===== */
+    const STAGES=["novo","qualificado","proposta","vendido","perdido"];
+
     function renderKanban(){
-      const stages=["novo","qualificado","proposta","ganho","perdido"];
-      for(const stage of stages){
+      for(const stage of STAGES){
         const body=document.getElementById("col-"+stage);
         const count=document.getElementById("count-"+stage);
         body.innerHTML="";
@@ -264,7 +354,9 @@
         for(const l of items){
           const card=document.createElement("div");
           card.className="kcard"; card.draggable=true; card.dataset.id=l.id;
-          card.innerHTML=`<div class="name">${esc(l.name||"")}</div><div class="meta">${esc(l.email||"")}</div>`;
+          const owner = l.owner ? `<div class="meta">Atendente: ${esc(l.owner)}</div>` : "";
+          card.innerHTML=`<div class="name">${esc(l.name||"")}</div>
+                          <div class="meta">${esc(l.email||"")}</div>${owner}`;
           card.addEventListener("click", ()=> showLeadDetails(l));   // clique no card abre modal
           body.appendChild(card);
         }
@@ -294,10 +386,15 @@
     if(form){
       form.addEventListener("submit", e=>{
         e.preventDefault();
-        const lead={id:String(Date.now()),name:document.getElementById("name").value.trim(),
-          email:document.getElementById("email").value.trim(),phone:document.getElementById("phone").value.trim(),
-          stage:document.getElementById("stage").value,source:document.getElementById("source").value.trim(),
-          date:document.getElementById("date").value,notes:document.getElementById("notes").value.trim(),
+        const lead={id:String(Date.now()),
+          name:document.getElementById("name").value.trim(),
+          email:document.getElementById("email").value.trim(),
+          phone:document.getElementById("phone").value.trim(),
+          stage:document.getElementById("stage").value,
+          owner:document.getElementById("owner").value.trim(),
+          source:document.getElementById("source").value.trim(),
+          date:document.getElementById("date").value,
+          notes:document.getElementById("notes").value.trim(),
           createdAt:Date.now(),updatedAt:Date.now()};
         if(!lead.name){alert("Informe o nome");return;}
         leads.push(lead);persist();form.reset();renderAll();
