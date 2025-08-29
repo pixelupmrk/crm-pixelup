@@ -4,6 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CRM PixelUp — Dashboard + Lista + Kanban</title>
+
+  <!-- PixelUp Telemetria Lite (CLIENT_ID + Plausible) -->
+  <script>
+    (function () {
+      const CID_KEY = 'px_client_id';
+      const q = new URLSearchParams(location.search);
+      const cidFromUrl = q.get('cid');
+      if (cidFromUrl) localStorage.setItem(CID_KEY, cidFromUrl);
+      window.CLIENT_ID   = localStorage.getItem(CID_KEY) || 'CLIENTE-DEMO';
+      window.APP_VERSION = '1.0.0';
+    })();
+  </script>
+  <script defer data-domain="crm-pixelup.vercel.app" src="https://plausible.io/js/script.js"></script>
+  <script>
+    window.pxTrack = function (eventName, props) {
+      try {
+        if (window.plausible) {
+          plausible(eventName, {
+            props: { client: window.CLIENT_ID, version: window.APP_VERSION, ...(props||{}) }
+          });
+        }
+      } catch(e) {}
+    };
+  </script>
+
   <style>
     *{box-sizing:border-box}
     body{
@@ -255,6 +280,10 @@
 
   <script>
   document.addEventListener("DOMContentLoaded", function(){
+    // Telemetria: abriu + heartbeat
+    pxTrack('app_open');
+    setInterval(() => pxTrack('heartbeat'), 15 * 60 * 1000);
+
     const storageStatus = document.getElementById("storageStatus");
     function setStatus(msg, cls){ storageStatus.textContent = msg; storageStatus.className = "status " + (cls||""); }
 
@@ -406,7 +435,6 @@
           </form>
       `;
 
-      // fecha pelo X, ESC e clique fora
       const close = ()=>{ dlg.close(); dlg.remove(); };
       dlg.addEventListener("close", ()=>dlg.remove());
       dlg.querySelector("#closeModalBtn").addEventListener("click", close);
@@ -416,7 +444,7 @@
         if(!inBox) close();
       });
 
-      // WhatsApp helpers
+      // WhatsApp
       const waText = dlg.querySelector("#waText");
       const preset = dlg.querySelector("#waPreset");
       const useDefault = dlg.querySelector("#useDefault");
@@ -434,6 +462,7 @@
         const num = digits(lead.phone||""); if(!num){ alert("Este lead não tem WhatsApp válido."); return; }
         const text = encodeURIComponent(waText.value || buildMessage(waTemplate, lead));
         window.open(`https://wa.me/${num}?text=${text}`, "_blank");
+        pxTrack('open_whatsapp');
       });
 
       // Edição
@@ -471,7 +500,7 @@
       });
 
       document.body.appendChild(dlg);
-      dlg.showModal();  // <—— centraliza e bloqueia o fundo automaticamente
+      dlg.showModal();
     }
 
     /* ===== LISTA ===== */
@@ -512,7 +541,12 @@
                       <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
         const td=document.createElement("td"); td.className="actions-cell";
         const del=document.createElement("button"); del.textContent="Excluir";
-        del.addEventListener("click", (ev)=>{ ev.stopPropagation(); leads=leads.filter(x=>x.id!==l.id); if(persist()){ setStatus("Lead excluído ✅","ok"); } renderAll(); });
+        del.addEventListener("click", (ev)=>{
+          ev.stopPropagation();
+          leads=leads.filter(x=>x.id!==l.id);
+          if(persist()){ setStatus("Lead excluído ✅","ok"); pxTrack('lead_delete'); }
+          renderAll();
+        });
         td.appendChild(del); tr.appendChild(td);
         tbody.appendChild(tr);
       }
@@ -611,7 +645,12 @@
           e.preventDefault(); col.classList.remove("kdrop");
           const id=e.dataTransfer.getData("text/plain");
           const l=leads.find(x=>x.id===id);
-          if(l){ l.stage=col.parentElement.dataset.stage; l.updatedAt=Date.now(); if(persist()){ setStatus("Lead movido ✅","ok"); } renderAll(); }
+          if(l){
+            const toStage = col.parentElement.dataset.stage;
+            l.stage=toStage; l.updatedAt=Date.now();
+            if(persist()){ setStatus("Lead movido ✅","ok"); pxTrack('kanban_move', { to: toStage }); }
+            renderAll();
+          }
         });
       });
     }
@@ -728,7 +767,12 @@
           createdAt:Date.now(),updatedAt:Date.now()};
         if(!lead.name){alert("Informe o nome");return;}
         leads.push(lead);
-        if(persist()){ setStatus("Lead salvo ✅","ok"); form.reset(); renderAll(); }
+        if(persist()){
+          setStatus("Lead salvo ✅","ok");
+          pxTrack('lead_save', { stage: lead.stage || 'novo' });
+          form.reset();
+          renderAll();
+        }
       });
     }
 
