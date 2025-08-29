@@ -97,29 +97,22 @@
     @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
 
-    /* ===== Modal centrado e flutuante ===== */
-    .modal{
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.6);
-      z-index: 999999;
+    /* ===== <dialog> como modal flutuante ===== */
+    dialog.px-modal{
+      width:min(94vw,640px);
+      max-height:90vh;
+      border:none;
+      border-radius:14px;
+      padding:18px;
+      background:#0f2132;
+      color:#eaf6ff;
+      box-shadow:0 10px 40px rgba(0,0,0,.5);
+      overflow:auto;
     }
-    .modal-content{
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: min(94vw, 640px);
-      max-height: 90vh;
-      overflow: auto;
-      background: #0f2132;
-      color: #eaf6ff;
-      border: 1px solid #17324a;
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    dialog.px-modal::backdrop{
+      background:rgba(0,0,0,.6);
+      backdrop-filter:blur(1px);
     }
-    body.modal-open{ overflow:hidden; }
 
     .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
     .modal-header h3{margin:0;font-size:18px}
@@ -288,7 +281,7 @@
     let waTemplate = storage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}). Podemos falar?";
     let leads = safeGetJSON(LS_KEY, []);
 
-    // pequena migração (tags → qualif)
+    // migração simples (tags -> qualif)
     let changed=false;
     for(const l of leads){
       if(!l.qualif && l.tags){
@@ -337,18 +330,17 @@
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    /* ===== Modal ===== */
+    /* ===== Modal com <dialog> ===== */
     function showLeadDetails(lead){
-      document.querySelectorAll(".modal").forEach(m=>m.remove());
+      document.querySelectorAll("dialog.px-modal").forEach(d=>d.close());
 
       const wa = digits(lead.phone||"");
       const waLink = wa ? `<a class="quick" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '-';
       const mail = lead.email ? `<a class="quick" href="mailto:${encodeURIComponent(lead.email)}">Enviar e-mail</a>` : '-';
 
-      const modal=document.createElement("div");
-      modal.className="modal";
-      modal.innerHTML=`
-        <div class="modal-content" role="dialog" aria-modal="true">
+      const dlg=document.createElement("dialog");
+      dlg.className="px-modal";
+      dlg.innerHTML=`
           <div class="modal-header">
             <h3>Detalhes do Lead</h3>
             <div class="modal-actions">
@@ -412,20 +404,29 @@
               <button type="submit" class="btn">Salvar alterações</button>
             </div>
           </form>
-        </div>`;
+      `;
 
-      const waText = modal.querySelector("#waText");
-      const preset = modal.querySelector("#waPreset");
-      const useDefault = modal.querySelector("#useDefault");
-      const openWa = modal.querySelector("#openWa");
+      // fecha pelo X, ESC e clique fora
+      const close = ()=>{ dlg.close(); dlg.remove(); };
+      dlg.addEventListener("close", ()=>dlg.remove());
+      dlg.querySelector("#closeModalBtn").addEventListener("click", close);
+      dlg.addEventListener("click", (e)=>{
+        const r = dlg.getBoundingClientRect();
+        const inBox = e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom;
+        if(!inBox) close();
+      });
 
+      // WhatsApp helpers
+      const waText = dlg.querySelector("#waText");
+      const preset = dlg.querySelector("#waPreset");
+      const useDefault = dlg.querySelector("#useDefault");
+      const openWa = dlg.querySelector("#openWa");
       const quicks = {
         oi: "Olá {{nome}}, tudo bem? Aqui é {{atendente}} da PixelUp ({{qualificacao}}). Recebemos seu contato via {{origem}} 🙂",
         proposta: "Oi {{nome}}! Enviei a proposta no seu e-mail {{email}} ({{qualificacao}}). Se preferir, resumo por aqui.",
         follow: "Oi {{nome}}, viu nossa proposta? Fico à disposição. ({{qualificacao}})"
       };
-
-      function fillDefault(){ waText.value = buildMessage(waTemplate, lead); }
+      const fillDefault = ()=> waText.value = buildMessage(waTemplate, lead);
       fillDefault();
       preset.addEventListener("change", ()=>{ const k=preset.value; waText.value = k?buildMessage(quicks[k], lead):""; });
       useDefault.addEventListener("click", fillDefault);
@@ -435,15 +436,10 @@
         window.open(`https://wa.me/${num}?text=${text}`, "_blank");
       });
 
-      const close = () => { document.body.classList.remove('modal-open'); modal.remove(); };
-      modal.addEventListener("click", e=>{ if(e.target===modal) close(); });
-      modal.querySelector("#closeModalBtn").addEventListener("click", close);
-      document.addEventListener("keydown", function escKey(ev){ if(ev.key==="Escape"){ close(); document.removeEventListener("keydown", escKey);} });
-
-      // edição
-      const details = modal.querySelector("#detailsView");
-      const formE = modal.querySelector("#editForm");
-      modal.querySelector("#editBtn").addEventListener("click", ()=>{
+      // Edição
+      const details = dlg.querySelector("#detailsView");
+      const formE = dlg.querySelector("#editForm");
+      dlg.querySelector("#editBtn").addEventListener("click", ()=>{
         formE.querySelector("#e_name").value  = lead.name||"";
         formE.querySelector("#e_email").value = lead.email||"";
         formE.querySelector("#e_phone").value = lead.phone||"";
@@ -470,12 +466,12 @@
         lead.qualif = formE.querySelector("#e_qualif").value;
         lead.notes  = formE.querySelector("#e_notes").value.trim();
         lead.updatedAt = Date.now();
-        if(persist()){ setStatus("Alterações salvas ✅", "ok"); }
+        if(persist()){ setStatus("Alterações salvas ✅","ok"); }
         close(); renderAll();
       });
 
-      document.body.classList.add('modal-open');
-      document.body.appendChild(modal);
+      document.body.appendChild(dlg);
+      dlg.showModal();  // <—— centraliza e bloqueia o fundo automaticamente
     }
 
     /* ===== LISTA ===== */
@@ -545,7 +541,7 @@
 
     function openEditForLead(lead){
       showLeadDetails(lead);
-      setTimeout(()=>{ document.querySelector('.modal #editBtn')?.click(); }, 0);
+      setTimeout(()=>{ document.querySelector('dialog.px-modal #editBtn')?.click(); }, 0);
     }
 
     function renderKanban(){
