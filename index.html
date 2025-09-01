@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CRM PixelUp — Dashboard + Lista + Kanban</title>
 
-  <!-- Telemetria simples (webhook.site) — pronto para usar -->
+  <!-- Telemetria simples (webhook.site) — opcional -->
   <script>
     (function () {
       const CID_KEY = 'px_client_id';
@@ -14,7 +14,7 @@
       if (cidFromUrl) localStorage.setItem(CID_KEY, cidFromUrl);
 
       window.CLIENT_ID   = localStorage.getItem(CID_KEY) || 'CLIENTE-DEMO';
-      window.APP_VERSION = '1.0.1'; // bump após correção do Kanban
+      window.APP_VERSION = '1.0.2'; // bump após fix de persistência
 
       const DEFAULT_WEBHOOK_URL = '';
       const whFromUrl = q.get('wh');
@@ -308,27 +308,61 @@
     const storageStatus = document.getElementById("storageStatus");
     function setStatus(msg, cls){ storageStatus.textContent = msg; storageStatus.className = "status " + (cls||""); }
 
-    let storage;
-    (function initStorage(){
-      try{ const t="__px_test__"; localStorage.setItem(t,"1"); localStorage.removeItem(t);
-        storage=localStorage; setStatus("Armazenamento: localStorage ativo ✅","ok");
-      }catch(e1){
-        try{ const t="__px_test__"; sessionStorage.setItem(t,"1"); sessionStorage.removeItem(t);
-          storage=sessionStorage; setStatus("Aviso: usando sessionStorage (perde ao fechar o navegador).","warn");
-        }catch(e2){
-          storage={getItem:()=>null,setItem:()=>{throw new Error("Sem storage");},removeItem:()=>{}};
-          setStatus("Erro: armazenamento bloqueado. Dados não serão salvos.","err");
-        }
+    /* ====== STORAGE ROBUSTO (espelha em local + session, com fallback para memória) ====== */
+    const memory = {};
+    function testStore(api){
+      const t="__px_test__";
+      api.setItem(t,"1"); api.removeItem(t);
+    }
+    let storeType = "localStorage";
+    let store = {
+      getItem(k){ // tenta local -> session -> memória
+        try{ const v = localStorage.getItem(k); if(v!=null) return v; }catch(_){}
+        try{ const v = sessionStorage.getItem(k); if(v!=null) return v; }catch(_){}
+        return Object.prototype.hasOwnProperty.call(memory,k) ? memory[k] : null;
+      },
+      setItem(k,v){ // espelha nas duas quando possível
+        let ok=false;
+        try{ localStorage.setItem(k,v); ok=true; }catch(_){}
+        try{ sessionStorage.setItem(k,v); ok=true; if(!ok) storeType="sessionStorage"; }catch(_){}
+        if(!ok){ memory[k]=v; storeType="memory"; }
+        return ok;
+      },
+      removeItem(k){
+        try{ localStorage.removeItem(k); }catch(_){}
+        try{ sessionStorage.removeItem(k); }catch(_){}
+        delete memory[k];
+      }
+    };
+    // Detecta capacidade real e informa status
+    (function initStorageStatus(){
+      try{ testStore(localStorage); storeType="localStorage"; setStatus("Armazenamento: localStorage ativo ✅","ok"); }
+      catch(e1){
+        try{ testStore(sessionStorage); storeType="sessionStorage"; setStatus("Aviso: usando sessionStorage (perde ao fechar o navegador).","warn"); }
+        catch(e2){ storeType="memory"; setStatus("Erro: armazenamento bloqueado. Dados não serão salvos após recarregar.","err"); }
       }
     })();
 
     const LS_KEY="pixelup_crm_leads_v1";
     const WA_TPL_KEY="pixelup_crm_wa_template_v1";
 
-    function safeGetJSON(key, def){ try{const v=storage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
-    function safeSetJSON(key, val){ try{storage.setItem(key, JSON.stringify(val));return true;}catch(e){setStatus("Erro ao salvar (ver Console).","err");return false;} }
+    function safeGetJSON(key, def){
+      try{ const v = store.getItem(key); return v?JSON.parse(v):def; }catch(e){ return def; }
+    }
+    function safeSetJSON(key, val){
+      try{
+        const s = JSON.stringify(val);
+        const ok = store.setItem(key, s);
+        if(!ok) throw new Error("Storage indisponível");
+        return true;
+      }catch(e){
+        console.warn("Persistência falhou:", e);
+        setStatus("Erro ao salvar (ver Console).","err");
+        return false;
+      }
+    }
 
-    let waTemplate = storage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}). Podemos falar?";
+    let waTemplate = (store.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}). Podemos falar?");
     let leads = safeGetJSON(LS_KEY, []);
 
     // migração simples (tags -> qualif)
@@ -345,7 +379,7 @@
     if(changed) safeSetJSON(LS_KEY, leads);
     const persist=()=>safeSetJSON(LS_KEY, leads);
 
-    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
     const qualName = q => q==="quente"?"Led Quente": q==="morno"?"Led Morno": q==="frio"?"Led Frio":""; // mantém texto original
@@ -455,7 +489,7 @@
               <button type="submit" class="btn">Salvar alterações</button>
             </div>
           </form>
-      ];
+      `;
 
       const close = ()=>{ dlg.close(); dlg.remove(); };
       dlg.addEventListener("close", ()=>dlg.remove());
@@ -548,7 +582,7 @@
 
         const mailCell = l.email ? `<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${l.email}</a>` : "";
         const waDigits = digits(l.phone||"");
-        const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.phone}</a>` : (l.phone||"");
+        const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}` + `" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.phone}</a>` : (l.phone||"");
 
         tr.innerHTML=`<td>${l.name||""}</td>
                       <td>${mailCell}</td>
@@ -646,7 +680,7 @@
             if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase()==="e"){ ev.preventDefault(); openEditForLead(l); }
           });
 
-          // >>> CORREÇÃO: arrastar por qualquer parte do card
+          // Arrastar por qualquer parte do card
           card.addEventListener("dragstart", e=>{
             const id = card.dataset.id;
             if (e.dataTransfer) {
@@ -665,7 +699,6 @@
       bindDnD();
     }
 
-    // >>> CORREÇÃO: dropEffect + fallback de id
     function bindDnD(){
       document.querySelectorAll(".kbody").forEach(col=>{
         col.addEventListener("dragover", e=>{
@@ -786,10 +819,11 @@
     });
 
     /* ===== Form ===== */
+    const uid = () => (Date.now().toString(36) + Math.random().toString(36).slice(2,6)).toUpperCase();
     if(form){
       form.addEventListener("submit", e=>{
         e.preventDefault();
-        const lead={id:String(Date.now()),
+        const lead={id:uid(),
           name:document.getElementById("name").value.trim(),
           email:document.getElementById("email").value.trim(),
           phone:document.getElementById("phone").value.trim(),
@@ -803,7 +837,7 @@
         if(!lead.name){alert("Informe o nome");return;}
         leads.push(lead);
         if(persist()){
-          setStatus("Lead salvo ✅","ok");
+          setStatus(`Lead salvo ✅ (armazenamento: ${storeType})`,"ok");
           pxTrack('lead_save', { stage: lead.stage || 'novo' });
           form.reset();
           renderAll();
@@ -816,7 +850,7 @@
       const novo = prompt("Edite o texto padrão do WhatsApp.\nPlaceholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}", waTemplate);
       if(novo!=null){
         waTemplate=novo;
-        try{ storage.setItem(WA_TPL_KEY, waTemplate); setStatus("Modelo de WhatsApp salvo ✅","ok"); }
+        try{ store.setItem(WA_TPL_KEY, waTemplate); setStatus("Modelo de WhatsApp salvo ✅","ok"); }
         catch(e){ setStatus("Erro ao salvar modelo","err"); }
       }
     });
