@@ -1,544 +1,839 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CRM PixelUp – Kanban</title>
-  <meta name="description" content="CRM PixelUp – Kanban simples com arrastar e soltar, edição e persistência local." />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CRM PixelUp — Dashboard + Lista + Kanban</title>
+
+  <!-- Telemetria simples (webhook.site) — pronto para usar -->
+  <script>
+    (function () {
+      // 1) ID do cliente via ?cid=... (ex.: ?cid=LOJA-CENTRO)
+      const CID_KEY = 'px_client_id';
+      const q = new URLSearchParams(location.search);
+      const cidFromUrl = q.get('cid');
+      if (cidFromUrl) localStorage.setItem(CID_KEY, cidFromUrl);
+
+      window.CLIENT_ID   = localStorage.getItem(CID_KEY) || 'CLIENTE-DEMO';
+      window.APP_VERSION = '1.0.0';
+
+      // 2) URL do webhook:
+      //    - preencha aqui (opcional) OU
+      //    - passe na URL como ?wh=https%3A%2F%2Fwebhook.site%2FSEU-ID
+      const DEFAULT_WEBHOOK_URL = ''; // ex.: 'https://webhook.site/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+      const whFromUrl = q.get('wh');  // já pode vir percent-encoded
+      const whStored  = localStorage.getItem('px_webhook_url');
+
+      if (whFromUrl) localStorage.setItem('px_webhook_url', decodeURIComponent(whFromUrl));
+      window.WEBHOOK_URL = whFromUrl ? decodeURIComponent(whFromUrl) : (whStored || DEFAULT_WEBHOOK_URL);
+
+      // 3) Função de telemetria: pxTrack('nome_do_evento', { props })
+      window.pxTrack = function (eventName, props) {
+        try {
+          if (!window.WEBHOOK_URL) return; // se não tiver URL, não envia
+          const payload = {
+            event: eventName,
+            client: window.CLIENT_ID,
+            version: window.APP_VERSION,
+            ts: new Date().toISOString(),
+            ...(props || {})
+          };
+          const body = JSON.stringify(payload);
+
+          if (navigator.sendBeacon) {
+            const blob = new Blob([body], { type: 'application/json' });
+            navigator.sendBeacon(window.WEBHOOK_URL, blob);
+          } else {
+            fetch(window.WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body
+            }).catch(() => {});
+          }
+        } catch (_) {}
+      };
+    })();
+  </script>
+
   <style>
-    :root{
-      --bg:#0b0f1a;
-      --panel:#0e1424;
-      --panel-2:#121a2e;
-      --text:#e6f0ff;
-      --muted:#9fb3d9;
-      --primary:#00b2ff;        /* neon azul */
-      --primary-2:#66d1ff;
-      --success:#18c964;
-      --danger:#ff4d6d;
-      --warning:#ffcc00;
-      --shadow: 0 10px 25px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset;
-      --glow: 0 0 12px rgba(0,178,255,.45), 0 0 40px rgba(0,178,255,.2);
-      --radius: 16px;
-    }
     *{box-sizing:border-box}
-    html,body{height:100%}
     body{
-      margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", sans-serif;
-      background: radial-gradient(1000px 600px at 20% -10%, rgba(0,178,255,.15), transparent 60%),
-                  radial-gradient(800px 600px at 120% 10%, rgba(102,209,255,.12), transparent 60%),
-                  var(--bg);
-      color:var(--text);
+      margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:linear-gradient(rgba(8,12,18,.82), rgba(8,12,18,.82)), url('pixelup-bg.jpg') center/cover fixed no-repeat;
+      color:#eaf6ff;
+    }
+    .topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:rgba(11,21,32,.75);border-bottom:1px solid #102437;backdrop-filter:blur(4px)}
+    .topbar h1{margin:0;font-size:20px;font-weight:700}
+    .topbar h1 span{color:#2bb8ff;text-shadow:0 0 14px rgba(43,184,255,.65)}
+    .container{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
+    .card{background:rgba(13,27,41,.85);backdrop-filter:blur(2px);border:1px solid #102437;border-radius:14px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+    h2{margin:0 0 12px;font-size:18px}
+
+    .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .form-grid textarea{grid-column:1/-1;min-height:80px}
+    .form-grid button{grid-column:1/-1}
+    input,select,textarea{background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px 12px;color:#d9f1ff;outline:none}
+    input::placeholder,textarea::placeholder{color:#7fa8c3}
+    .btn{background:#18a4ff;border:1px solid #18a4ff;color:#001727;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.ghost{background:transparent;border-color:#17324a;color:#cde9ff}
+
+    .list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px;flex-wrap:wrap}
+    .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .filter-dates{display:flex;gap:8px;align-items:center}
+
+    .table-wrap{overflow-x:auto;border:1px solid #102437;border-radius:12px}
+    table{width:100%;border-collapse:collapse}
+    th{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px;white-space:nowrap;background:#0b1520;position:sticky;top:0}
+    td{padding:10px;border-bottom:1px solid #102437;text-align:left;font-size:14px}
+    tr:hover{background:#0f1d2b}
+    tr.clickable{cursor:pointer}
+    .actions-cell button{background:transparent;border:1px solid #17324a;color:#9fd9ff;padding:6px 10px;border-radius:8px;margin-right:6px;cursor:pointer}
+    a.quick{color:#9fd9ff;text-decoration:underline}
+    a.quick:hover{text-decoration:none;opacity:.9}
+
+    .qual-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #17324a;background:#0b1a27;color:#cde9ff}
+    .q-quente{background:#3b0d0d;color:#ffd1d1;border-color:#5c1a1a}
+    .q-morno{background:#3b2a0d;color:#ffe6b0;border-color:#6b4a12}
+    .q-frio{ background:#0d264a;color:#d5e6ff;border-color:#123b70}
+
+    .view-switch{display:flex;gap:8px;align-items:center;margin:0 0 8px;flex-wrap:wrap}
+    .view-switch .tab{background:#0f2132;border:1px solid #17324a;color:#cde9ff;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .view-switch .tab.active{background:#18a4ff;border-color:#18a4ff;color:#001727;font-weight:700}
+
+    /* Kanban */
+    .kanban{display:none;gap:12px;align-items:flex-start}
+    .kanban.visible{display:grid;grid-template-columns:repeat(5,1fr)}
+    .kcol{background:rgba(13,27,41,.9);border:1px solid #102437;border-radius:12px;min-height:300px;max-height:70vh;display:flex;flex-direction:column}
+    .khead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #102437}
+    .khead .title{font-weight:700}
+    .khead .count{background:#0f2132;border:1px solid #17324a;border-radius:999px;padding:2px 8px;font-size:12px}
+    .kbody{padding:10px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:8px}
+
+    .kcard{position:relative;background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab;overflow:hidden}
+    .kcard:active{cursor:grabbing}
+    .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
+    .kcard .name{font-weight:600;margin-bottom:2px}
+    .kcard .meta{opacity:.8}
+
+    .drag-handle{
+      position:absolute;bottom:6px;right:6px;font-size:14px;line-height:1;
+      background:#0b1520;border:1px solid #17324a;border-radius:8px;padding:3px 6px;user-select:none;cursor:grab
+    }
+    .drag-handle:active{cursor:grabbing}
+
+    .kcol[data-stage="novo"]{border-color:#3b82f6}
+    .kcol[data-stage="qualificado"]{border-color:#a855f7}
+    .kcol[data-stage="proposta"]{border-color:#f59e0b}
+    .kcol[data-stage="vendido"]{border-color:#22c55e}
+    .kcol[data-stage="perdido"]{border-color:#ef4444}
+    .kcol[data-stage] .khead .count{color:#9fd9ff}
+    .kcol[data-stage="novo"] .khead .title{color:#60a5fa}
+    .kcol[data-stage="qualificado"] .khead .title{color:#c084fc}
+    .kcol[data-stage="proposta"] .khead .title{color:#fbbf24}
+    .kcol[data-stage="vendido"] .khead .title{color:#34d399}
+    .kcol[data-stage="perdido"] .khead .title{color:#f87171}
+
+    .wa-icon{position:absolute;top:6px;right:6px;z-index:50;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#25D366;border:1px solid #0b1a27;box-shadow:0 2px 4px rgba(0,0,0,.4);transition:all .2s}
+    .wa-icon:hover{transform:scale(1.1)}
+    .wa-icon svg{width:14px;height:14px;display:block;fill:#fff}
+
+    .edit-btn{
+      position:absolute;top:6px;left:6px;
+      background:#0f2132;border:1px solid #17324a;color:#cde9ff;
+      border-radius:8px;padding:4px 6px;cursor:pointer;font-size:12px
+    }
+    .edit-btn:hover{filter:brightness(1.1)}
+
+    @media (max-width:1000px){.kanban.visible{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:600px){.kanban.visible{grid-template-columns:1fr}}
+
+    /* ===== <dialog> como modal flutuante ===== */
+    dialog.px-modal{
+      width:min(94vw,640px);
+      max-height:90vh;
+      border:none;
+      border-radius:14px;
+      padding:18px;
+      background:#0f2132;
+      color:#eaf6ff;
+      box-shadow:0 10px 40px rgba(0,0,0,.5);
+      overflow:auto;
+    }
+    dialog.px-modal::backdrop{
+      background:rgba(0,0,0,.6);
+      backdrop-filter:blur(1px);
     }
 
-    /* Header */
-    .topbar{
-      position:sticky; top:0; z-index:40;
-      background: linear-gradient(180deg, rgba(11,15,26,.85), rgba(11,15,26,.65) 60%, transparent);
-      backdrop-filter: blur(6px);
-      border-bottom: 1px solid rgba(255,255,255,.06);
-    }
-    .wrap{max-width:1200px; margin:0 auto; padding:16px;}
-    .brand{
-      display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.3px;
-    }
-    .logo{
-      width:34px; height:34px; border-radius:10px; display:grid; place-items:center;
-      background: radial-gradient(100% 100% at 30% 20%, var(--primary) 0%, #0070c0 60%, #003b73 100%);
-      color:white; box-shadow: var(--glow), inset 0 0 12px rgba(0,0,0,.3);
-      font-weight:900;
-    }
-    .tools{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px;
-    }
-    input[type="search"]{
-      width:min(420px, 100%); padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.08);
-      background: var(--panel); color:var(--text); outline:none;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
-    }
-    .btn{
-      appearance:none; border:none; border-radius:12px; padding:10px 14px; cursor:pointer;
-      color:var(--text); background: var(--panel); border:1px solid rgba(255,255,255,.08);
-      transition:.2s transform, .2s background, .2s border-color, .2s box-shadow;
-    }
-    .btn:hover{ transform: translateY(-1px); border-color: rgba(102,209,255,.35); box-shadow: var(--glow); }
-    .btn.primary{ background: linear-gradient(180deg, var(--primary), #0894d1); color:#00111a; font-weight:700; box-shadow: var(--glow); border-color: transparent;}
-    .btn.ghost{ background: transparent; }
-    .btn.small{ padding:8px 10px; font-size:.9rem; border-radius:10px; }
+    .modal-header{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+    .modal-header h3{margin:0;font-size:18px}
+    .modal-actions{display:flex;gap:8px}
+    .modal-close{background:transparent;border:1px solid #17324a;color:#cde9ff;border-radius:10px;padding:6px 10px;cursor:pointer}
+    .dl{display:grid;grid-template-columns:140px 1fr;gap:8px;margin-top:8px}
+    .dl b{color:#9fd9ff}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;opacity:.9}
+    .edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .edit-grid textarea{grid-column:1/-1;min-height:100px}
+    .wa-block{margin-top:12px;border-top:1px solid #17324a;padding-top:10px;display:grid;gap:8px}
+    .wa-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
-    /* Board */
-    .board{
-      max-width:1200px; margin:12px auto 40px; padding:0 16px;
-      display:grid; gap:14px; grid-template-columns: repeat(4, 1fr);
-    }
-    @media (max-width:1100px){ .board{ grid-template-columns: repeat(3, 1fr);} }
-    @media (max-width:800px){ .board{ grid-template-columns: repeat(2, 1fr);} }
-    @media (max-width:560px){ .board{ grid-template-columns: 1fr; } }
+    /* Dashboard */
+    .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+    .kpi{background:#0f2132;border:1px solid #17324a;border-radius:12px;padding:12px}
+    .kpi .kpi-label{font-size:12px;opacity:.8;margin-bottom:6px}
+    .kpi .kpi-value{font-size:26px;font-weight:800}
+    .dash-panels{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .panel{background:#0f2132;border:1px solid #17324a;border-radius:12px;padding:12px}
+    .panel h3{margin:0 0 10px;font-size:16px}
+    .bar{background:#0b1520;border:1px solid #17324a;border-radius:999px;overflow:hidden;height:10px}
+    .bar > div{height:10px;background:#18a4ff}
+    .row{display:grid;grid-template-columns:140px 1fr 60px;gap:8px;align-items:center;margin:8px 0}
+    .mini-table{width:100%;border-collapse:collapse}
+    .mini-table th,.mini-table td{border-bottom:1px solid #102437;padding:8px;text-align:left;font-size:13px}
 
-    .col{
-      background: linear-gradient(180deg, rgba(0,178,255,.08), transparent 140%) , var(--panel-2);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius: var(--radius); overflow:hidden; box-shadow: var(--shadow);
-      min-height: 220px; display:flex; flex-direction:column;
-    }
-    .col-header{
-      display:flex; align-items:center; justify-content:space-between; padding:12px 12px;
-      border-bottom:1px solid rgba(255,255,255,.06); background: rgba(0,0,0,.12);
-    }
-    .col-title{font-weight:700; display:flex; align-items:center; gap:10px;}
-    .badge{
-      font-size:.75rem; padding:4px 8px; border-radius:999px; background:rgba(255,255,255,.08); color:var(--muted);
-      border:1px solid rgba(255,255,255,.12);
-    }
-    .dropzone{ padding:12px; display:flex; flex-direction:column; gap:10px; flex:1; }
-    .dropzone.dragover{ outline:2px dashed var(--primary); outline-offset:-6px; background: rgba(0,178,255,.06); }
-
-    /* Cards */
-    .card{
-      background: var(--panel); border:1px solid rgba(255,255,255,.1);
-      border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:8px;
-      cursor:grab; box-shadow: var(--shadow); transition:.15s transform, .15s box-shadow, .15s border-color;
-    }
-    .card:hover{ transform: translateY(-2px); border-color: rgba(102,209,255,.35); box-shadow: var(--glow); }
-    .card:active{ cursor:grabbing; }
-    .card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .title{ font-weight:700; }
-    .meta{ color:var(--muted); font-size:.9rem; display:flex; flex-wrap:wrap; gap:10px; }
-    .pill{ font-size:.75rem; padding:4px 8px; border-radius:999px; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); }
-    .value{ font-weight:800; letter-spacing:.2px; }
-    .actions{ display:flex; gap:8px; }
-    .icon-btn{
-      width:32px; height:32px; display:grid; place-items:center; border-radius:10px; background: transparent;
-      border:1px solid rgba(255,255,255,.12); color:var(--text); cursor:pointer;
-    }
-    .icon-btn:hover{ border-color: rgba(102,209,255,.4); box-shadow: var(--glow); }
-
-    /* Modal (flutuante, central) */
-    .modal{
-      position: fixed; inset:0; display:none; place-items:center; background: rgba(4,8,16,.6); backdrop-filter: blur(6px);
-      z-index: 100;
-    }
-    .modal.open{ display:grid; }
-    .dialog{
-      width:min(560px, 92vw); background: var(--panel-2); border:1px solid rgba(255,255,255,.12); border-radius:18px;
-      box-shadow: 0 50px 120px rgba(0,0,0,.6), var(--glow); padding:16px;
-      transform: translateY(0); animation: pop .14s ease-out;
-    }
-    @keyframes pop{ from{ transform: translateY(8px); opacity:.8 } to{ transform:none; opacity:1 } }
-    .dialog h3{ margin:0 0 8px 0; }
-    .grid{ display:grid; gap:10px; grid-template-columns: 1fr 1fr; }
-    @media (max-width:520px){ .grid{ grid-template-columns: 1fr; } }
-    .field{ display:flex; flex-direction:column; gap:6px; }
-    .field label{ color:var(--muted); font-size:.9rem; }
-    .field input, .field textarea, .field select{
-      background: var(--panel); color:var(--text); border:1px solid rgba(255,255,255,.12); border-radius:10px;
-      padding:10px 12px; outline:none;
-    }
-    .dialog .footer{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px; }
-    .left{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .right{ display:flex; gap:8px; }
-
-    /* toast */
-    .toast{
-      position: fixed; bottom:18px; left:50%; transform: translateX(-50%);
-      background: rgba(14,20,36,.9); border:1px solid rgba(255,255,255,.12); color:var(--text);
-      padding:10px 14px; border-radius:12px; box-shadow: var(--shadow); z-index:120; display:none;
-    }
-    .toast.show{ display:block; animation: fade 2.2s ease-out; }
-    @keyframes fade{ 0%{opacity:0; transform:translate(-50%,10px)} 10%,80%{opacity:1; transform:translate(-50%,0)} 100%{opacity:0; transform:translate(-50%,-6px)} }
-
-    /* helpers */
-    .hidden{ display:none !important; }
-    a{ color:var(--primary-2); text-decoration: none; }
-    .note{ color:var(--muted); font-size:.92rem; }
-    .sep{ height:1px; background: rgba(255,255,255,.08); margin:8px 0; }
+    @media (max-width:900px){.dash-grid{grid-template-columns:1fr}.dash-panels{grid-template-columns:1fr}}
+    .status{margin-top:8px;font-size:12px;opacity:.85}
+    .status.ok{color:#9fe870}
+    .status.warn{color:#ffd166}
+    .status.err{color:#ff7b7b}
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="wrap">
-      <div class="brand">
-        <div class="logo">UP</div>
-        <div>
-          <div style="font-size:1.05rem">CRM <span style="color:var(--primary)">PixelUp</span></div>
-          <div class="note">Kanban com arrastar-e-soltar, edição rápida e salvamento local</div>
+  <header class="topbar"><h1>CRM <span>PixelUp</span></h1></header>
+
+  <main class="container">
+    <!-- Form -->
+    <section class="card">
+      <h2>Novo Lead</h2>
+      <form id="leadForm" class="form-grid">
+        <input id="name" placeholder="Nome" required />
+        <input id="email" type="email" placeholder="E-mail" />
+        <input id="phone" placeholder="WhatsApp" />
+        <select id="stage">
+          <option value="novo">Novo</option>
+          <option value="qualificado">Qualificado</option>
+          <option value="proposta">Proposta</option>
+          <option value="vendido">Vendido</option>
+          <option value="perdido">Perdido</option>
+        </select>
+        <input id="owner" placeholder="Atendente (quem atende)" />
+        <input id="source" placeholder="Origem" />
+        <input id="date" type="date" />
+        <select id="qualif">
+          <option value="">Qualificação</option>
+          <option value="quente">Led Quente</option>
+          <option value="morno">Led Morno</option>
+          <option value="frio">Led Frio</option>
+        </select>
+        <textarea id="notes" placeholder="Notas"></textarea>
+        <button class="btn" type="submit">Salvar</button>
+      </form>
+      <div id="storageStatus" class="status"></div>
+    </section>
+
+    <!-- Lista + Kanban + Dashboard -->
+    <section class="card">
+      <div class="list-header">
+        <h2>Leads</h2>
+        <div class="filters">
+          <input id="search" placeholder="Buscar..." />
+          <select id="filterOwner"><option value="">Todos atendentes</option></select>
+          <select id="filterQualif">
+            <option value="">Todas qualificações</option>
+            <option value="quente">Led Quente</option>
+            <option value="morno">Led Morno</option>
+            <option value="frio">Led Frio</option>
+          </select>
+          <div class="filter-dates">
+            <span>De</span><input id="filterStart" type="date">
+            <span>Até</span><input id="filterEnd" type="date">
+          </div>
+          <button id="btnTemplate" class="btn ghost">Configurar mensagem padrão</button>
+          <button id="exportCsv" class="btn">Exportar CSV</button>
         </div>
       </div>
 
-      <div class="tools">
-        <input id="search" type="search" placeholder="Buscar por nome, empresa, telefone, observação…" />
-        <button class="btn small" id="btn-exportar" title="Exportar JSON">Exportar</button>
-        <label class="btn small ghost" style="cursor:pointer">
-          Importar <input id="file-import" type="file" accept="application/json" style="display:none" />
-        </label>
-        <button class="btn small ghost" id="btn-reset" title="Apagar tudo (localStorage)">Reset</button>
-        <span class="note">• Dica: clique no card para editar • arraste para mudar de coluna</span>
+      <div class="view-switch">
+        <button id="tabDashboard" class="tab">Dashboard</button>
+        <button id="tabList" class="tab active">Lista</button>
+        <button id="tabKanban" class="tab">Kanban</button>
       </div>
-    </div>
-  </header>
 
-  <main class="board" id="board">
-    <!-- Colunas serão desenhadas por JS -->
+      <!-- DASHBOARD -->
+      <div id="dashboard" style="display:none">
+        <div class="dash-grid">
+          <div class="kpi"><div class="kpi-label">Total de Leads</div><div class="kpi-value" id="kpiTotal">0</div></div>
+          <div class="kpi"><div class="kpi-label">Vendas (Vendido)</div><div class="kpi-value" id="kpiVendido">0</div></div>
+          <div class="kpi"><div class="kpi-label">Taxa de Conversão</div><div class="kpi-value" id="kpiConv">0%</div></div>
+        </div>
+
+        <div class="dash-panels">
+          <div class="panel"><h3>Por Estágio</h3><div id="dashStages"></div></div>
+          <div class="panel"><h3>Por Qualificação</h3><div id="dashQualif"></div></div>
+          <div class="panel" style="grid-column:1/-1">
+            <h3>Leads por Atendente</h3>
+            <table class="mini-table" id="dashOwners">
+              <thead><tr><th>Atendente</th><th>Total</th><th>Vendido</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA -->
+      <div class="table-wrap" id="tableWrap">
+        <table id="leadsTable">
+          <thead>
+            <tr>
+              <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>Atendente</th>
+              <th>Estágio</th><th>Origem</th><th>Data</th><th>Qualificação</th><th>Atualizado</th><th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- KANBAN -->
+      <div id="kanban" class="kanban">
+        <div class="kcol" data-stage="novo"><div class="khead"><span class="title">Novo</span><span class="count" id="count-novo">0</span></div><div class="kbody" id="col-novo"></div></div>
+        <div class="kcol" data-stage="qualificado"><div class="khead"><span class="title">Qualificado</span><span class="count" id="count-qualificado">0</span></div><div class="kbody" id="col-qualificado"></div></div>
+        <div class="kcol" data-stage="proposta"><div class="khead"><span class="title">Proposta</span><span class="count" id="count-proposta">0</span></div><div class="kbody" id="col-proposta"></div></div>
+        <div class="kcol" data-stage="vendido"><div class="khead"><span class="title">Vendido</span><span class="count" id="count-vendido">0</span></div><div class="kbody" id="col-vendido"></div></div>
+        <div class="kcol" data-stage="perdido"><div class="khead"><span class="title">Perdido</span><span class="count" id="count-perdido">0</span></div><div class="kbody" id="col-perdido"></div></div>
+      </div>
+    </section>
   </main>
 
-  <!-- Modal de Lead -->
-  <div class="modal" id="modal">
-    <div class="dialog" role="dialog" aria-modal="true">
-      <h3 id="modal-title">Novo Lead</h3>
-      <div class="grid">
-        <div class="field">
-          <label for="lead-name">Nome</label>
-          <input id="lead-name" placeholder="Ex.: Maria Silva" />
-        </div>
-        <div class="field">
-          <label for="lead-company">Empresa</label>
-          <input id="lead-company" placeholder="Ex.: M2 Multimarcas" />
-        </div>
-        <div class="field">
-          <label for="lead-phone">Telefone (Whats)</label>
-          <input id="lead-phone" placeholder="(47) 9 9999-9999" />
-        </div>
-        <div class="field">
-          <label for="lead-value">Valor (R$)</label>
-          <input id="lead-value" inputmode="decimal" placeholder="Ex.: 2.500" />
-        </div>
-        <div class="field">
-          <label for="lead-status">Fase</label>
-          <select id="lead-status"></select>
-        </div>
-        <div class="field">
-          <label for="lead-tags">Tags (separe por vírgula)</label>
-          <input id="lead-tags" placeholder="instagram, campanha, carro" />
-        </div>
-        <div class="field" style="grid-column:1 / -1">
-          <label for="lead-notes">Observações</label>
-          <textarea id="lead-notes" rows="4" placeholder="Anote objeções, dores, próximos passos…"></textarea>
-        </div>
-      </div>
-      <div class="footer">
-        <div class="left">
-          <button class="btn small" id="btn-duplicar" title="Duplicar lead">Duplicar</button>
-          <button class="btn small" id="btn-excluir" style="color:#ffdce5;border-color:rgba(255,77,109,.4)">Excluir</button>
-        </div>
-        <div class="right">
-          <button class="btn small ghost" id="btn-cancelar">Cancelar</button>
-          <button class="btn small primary" id="btn-salvar">Salvar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
   <script>
-    // === Utilitários ==========================================================
-    const $ = (sel, root=document) => root.querySelector(sel);
-    const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
-    const uid = () => Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4);
-    const fmtMoney = (v) => {
-      if (v===null || v===undefined || v==="") return "";
-      const n = Number(String(v).replace(/\./g,'').replace(',','.'));
-      if (isNaN(n)) return String(v);
-      return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'}).replace(/\u00A0/g,' ');
-    }
-    const toast = (msg) => {
-      const el = $('#toast'); el.textContent = msg; el.classList.add('show');
-      setTimeout(()=> el.classList.remove('show'), 2200);
-    }
+  document.addEventListener("DOMContentLoaded", function(){
+    // Telemetria: abriu + heartbeat
+    pxTrack('app_open');
+    setInterval(() => pxTrack('heartbeat'), 15 * 60 * 1000);
 
-    // === Estado & Persistência ================================================
-    const STORAGE_KEY = 'pixelupCRM_v1';
-    const defaultColumns = [
-      { key:'novos',      name:'Novos'      , color:'#66d1ff'},
-      { key:'contato',    name:'Contato'    , color:'#7cf6d7'},
-      { key:'negociacao', name:'Negociação' , color:'#ffd166'},
-      { key:'fechado',    name:'Fechado'    , color:'#ff8fa3'},
-    ];
-    const state = {
-      columns: [...defaultColumns],
-      leads: [],
-    };
-    const load = () => {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw){
-        // amostra inicial
-        state.leads = [
-          {id:uid(), name:'Carlos Andrade', company:'Barbearia Cauan', phone:'(47) 9 8888-8888', value:1500, notes:'Quer iniciar tráfego local.', tags:['barbearia','meta'], status:'novos', createdAt:Date.now()},
-          {id:uid(), name:'Mai Cristina', company:'Mai Cristina Studio', phone:'(47) 99664-6177', value:2200, notes:'Interesse em pacote Premium + conteúdos.', tags:['massagem','conteúdo'], status:'contato', createdAt:Date.now()},
-          {id:uid(), name:'Maiko', company:'M2 Multimarcas', phone:'(47) 99760-5173', value:4800, notes:'Campanhas de carros + stories semanais.', tags:['concessionária','tráfego'], status:'negociacao', createdAt:Date.now()},
-          {id:uid(), name:'Vitrine Autos', company:'Vitrine Autos', phone:'(47) 9 7777-7777', value:3900, notes:'Fechou plano Intermediário.', tags:['autos','ads'], status:'fechado', createdAt:Date.now()-86400000},
-        ];
-        save();
-      }else{
-        const parsed = JSON.parse(raw);
-        state.columns = parsed.columns ?? defaultColumns;
-        state.leads   = parsed.leads   ?? [];
-      }
-    }
-    const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const storageStatus = document.getElementById("storageStatus");
+    function setStatus(msg, cls){ storageStatus.textContent = msg; storageStatus.className = "status " + (cls||""); }
 
-    // === Render das Colunas & Cards ===========================================
-    const board = $('#board');
-    function renderBoard(){
-      board.innerHTML = '';
-      for (const col of state.columns){
-        const colEl = document.createElement('section');
-        colEl.className = 'col';
-        colEl.dataset.key = col.key;
-        colEl.innerHTML = `
-          <div class="col-header">
-            <div class="col-title">
-              <div style="width:10px;height:10px;border-radius:999px;background:${col.color};box-shadow:0 0 12px ${col.color}"></div>
-              ${col.name}
-              <span class="badge" data-count>0</span>
-            </div>
-            <div class="actions">
-              <button class="icon-btn" title="Novo lead nesta coluna" data-add>
-                ➕
-              </button>
-            </div>
-          </div>
-          <div class="dropzone" data-dropzone></div>
-        `;
-        board.appendChild(colEl);
-
-        const dz = $('[data-dropzone]', colEl);
-        dz.addEventListener('dragover', onDragOver);
-        dz.addEventListener('dragleave', onDragLeave);
-        dz.addEventListener('drop', (e)=> onDrop(e, col.key));
-
-        $('[data-add]', colEl).addEventListener('click', ()=> openModal({status:col.key}));
-      }
-      renderCards();
-    }
-
-    function renderCards(){
-      // filtro
-      const q = $('#search').value.trim().toLowerCase();
-      const match = (lead) => {
-        if (!q) return true;
-        return [lead.name, lead.company, lead.phone, lead.notes, ...(lead.tags||[])].filter(Boolean).some(t => String(t).toLowerCase().includes(q));
-      }
-
-      // limpar dropzones
-      $$('.dropzone').forEach(dz => dz.innerHTML = '');
-
-      for (const lead of state.leads){
-        if (!match(lead)) continue;
-        const card = document.createElement('article');
-        card.className = 'card';
-        card.draggable = true;
-        card.dataset.id = lead.id;
-        card.innerHTML = `
-          <div class="card-top">
-            <div class="title">${escapeHTML(lead.name || 'Sem nome')}</div>
-            <div class="actions">
-              <button class="icon-btn" title="Abrir WhatsApp" data-whats>💬</button>
-              <button class="icon-btn" title="Editar" data-edit>✏️</button>
-            </div>
-          </div>
-          <div class="meta">
-            ${lead.company ? `<span class="pill">${escapeHTML(lead.company)}</span>` : ''}
-            ${lead.phone ? `<span class="pill">☎ ${escapeHTML(lead.phone)}</span>` : ''}
-            ${lead.value!==undefined && lead.value!=='' ? `<span class="pill value">${fmtMoney(lead.value)}</span>` : ''}
-          </div>
-          ${Array.isArray(lead.tags) && lead.tags.length ? `<div class="meta">${lead.tags.map(t=>`<span class="pill">#${escapeHTML(t)}</span>`).join('')}</div>`:''}
-          ${lead.notes ? `<div class="note">📝 ${escapeHTML(lead.notes)}</div>`:''}
-        `;
-        card.addEventListener('dragstart', onDragStart);
-        card.addEventListener('click', (e)=>{
-          if (e.target.closest('[data-edit]')) { e.stopPropagation(); openModal(lead); return; }
-          if (e.target.closest('[data-whats]')) { e.stopPropagation(); openWhats(lead); return; }
-          // clique em qualquer lugar do card também edita:
-          openModal(lead);
-        });
-        const dz = $(`.col[data-key="${lead.status}"] .dropzone`);
-        (dz ?? $('.col .dropzone')).appendChild(card);
-      }
-
-      // atualizar contadores
-      for (const col of state.columns){
-        const count = $(`.col[data-key="${col.key}"] [data-count]`);
-        const n = state.leads.filter(l => l.status === col.key && (!q || true)).length;
-        if (count) count.textContent = n;
-      }
-    }
-
-    function escapeHTML(s){
-      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-
-    // === Drag & Drop ==========================================================
-    let dragId = null;
-    function onDragStart(e){
-      dragId = e.currentTarget.dataset.id;
-      e.dataTransfer.setData('text/plain', dragId);
-      // fantasma menor
-      const crt = e.currentTarget.cloneNode(true);
-      crt.style.width = getComputedStyle(e.currentTarget).width;
-      crt.style.opacity = '.7';
-      document.body.appendChild(crt);
-      e.dataTransfer.setDragImage(crt, 20, 20);
-      setTimeout(()=> crt.remove(), 0);
-    }
-    function onDragOver(e){
-      e.preventDefault(); e.currentTarget.classList.add('dragover');
-    }
-    function onDragLeave(e){
-      e.currentTarget.classList.remove('dragover');
-    }
-    function onDrop(e, newStatus){
-      e.preventDefault();
-      e.currentTarget.classList.remove('dragover');
-      const id = e.dataTransfer.getData('text/plain') || dragId;
-      const card = $(`.card[data-id="${CSS.escape(id)}"]`);
-      if (!card) return;
-      e.currentTarget.appendChild(card);
-      const lead = state.leads.find(l => l.id === id);
-      if (lead){
-        lead.status = newStatus; save(); renderCards();
-        toast(`Movido para "${(state.columns.find(c=>c.key===newStatus)||{}).name || newStatus}"`);
-      }
-    }
-
-    // === Modal de edição ======================================================
-    let currentId = null; // null = criando
-    const modal = $('#modal');
-    const statusSelect = $('#lead-status');
-
-    function openModal(data={}){
-      currentId = data.id ?? null;
-      $('#modal-title').textContent = currentId ? 'Editar Lead' : 'Novo Lead';
-      $('#lead-name').value = data.name ?? '';
-      $('#lead-company').value = data.company ?? '';
-      $('#lead-phone').value = data.phone ?? '';
-      $('#lead-value').value = data.value ?? '';
-      $('#lead-notes').value = data.notes ?? '';
-      $('#lead-tags').value = (data.tags ?? []).join(', ');
-
-      // preencher opções de status
-      statusSelect.innerHTML = state.columns.map(c => `<option value="${c.key}">${c.name}</option>`).join('');
-      statusSelect.value = data.status ?? state.columns[0].key;
-
-      $('#btn-excluir').style.display = currentId ? 'inline-flex' : 'none';
-      $('#btn-duplicar').style.display = currentId ? 'inline-flex' : 'none';
-
-      modal.classList.add('open');
-      setTimeout(()=> $('#lead-name').focus(), 10);
-    }
-    function closeModal(){ modal.classList.remove('open'); }
-
-    $('#btn-cancelar').addEventListener('click', closeModal);
-    modal.addEventListener('click', (e)=> { if (e.target === modal) closeModal(); });
-
-    $('#btn-salvar').addEventListener('click', ()=>{
-      const payload = {
-        name: $('#lead-name').value.trim(),
-        company: $('#lead-company').value.trim(),
-        phone: $('#lead-phone').value.trim(),
-        value: $('#lead-value').value.trim(),
-        notes: $('#lead-notes').value.trim(),
-        tags: $('#lead-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
-        status: statusSelect.value,
-        createdAt: Date.now(),
-      };
-      if (currentId){
-        const i = state.leads.findIndex(l => l.id === currentId);
-        if (i>-1) state.leads[i] = {...state.leads[i], ...payload};
-        toast('Lead atualizado');
-      }else{
-        const lead = { id: uid(), ...payload };
-        state.leads.unshift(lead);
-        toast('Lead criado');
-      }
-      save(); renderCards(); closeModal();
-    });
-
-    $('#btn-excluir').addEventListener('click', ()=>{
-      if (!currentId) return;
-      if (confirm('Excluir este lead?')){
-        const i = state.leads.findIndex(l => l.id === currentId);
-        if (i>-1) state.leads.splice(i,1);
-        save(); renderCards(); closeModal(); toast('Lead excluído');
-      }
-    });
-
-    $('#btn-duplicar').addEventListener('click', ()=>{
-      if (!currentId) return;
-      const base = state.leads.find(l => l.id===currentId);
-      if (!base) return;
-      const dup = {...base, id:uid(), name: base.name + ' (cópia)'};
-      state.leads.unshift(dup);
-      save(); renderCards(); toast('Lead duplicado');
-    });
-
-    function openWhats(lead){
-      // Abre link universal do WhatsApp
-      const phoneDigits = (lead.phone || '').replace(/\D/g,'');
-      if (!phoneDigits){ toast('Telefone inválido'); return; }
-      const text = encodeURIComponent(`Olá ${lead.name || ''}! Aqui é a PixelUp 🚀`);
-      const url = `https://wa.me/55${phoneDigits}?text=${text}`;
-      window.open(url, '_blank');
-    }
-
-    // === Busca, Export/Import, Reset =========================================
-    $('#search').addEventListener('input', renderCards);
-
-    $('#btn-exportar').addEventListener('click', ()=>{
-      const data = JSON.stringify({columns: state.columns, leads: state.leads}, null, 2);
-      const blob = new Blob([data], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'pixelup-crm.json'; a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    $('#file-import').addEventListener('change', (e)=>{
-      const file = e.target.files[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try{
-          const data = JSON.parse(reader.result);
-          if (Array.isArray(data.leads)) state.leads = data.leads;
-          if (Array.isArray(data.columns)) state.columns = data.columns;
-          save(); renderBoard(); toast('Importado com sucesso');
-        }catch(err){
-          alert('Arquivo inválido.');
+    let storage;
+    (function initStorage(){
+      try{ const t="__px_test__"; localStorage.setItem(t,"1"); localStorage.removeItem(t);
+        storage=localStorage; setStatus("Armazenamento: localStorage ativo ✅","ok");
+      }catch(e1){
+        try{ const t="__px_test__"; sessionStorage.setItem(t,"1"); sessionStorage.removeItem(t);
+          storage=sessionStorage; setStatus("Aviso: usando sessionStorage (perde ao fechar o navegador).","warn");
+        }catch(e2){
+          storage={getItem:()=>null,setItem:()=>{throw new Error("Sem storage");},removeItem:()=>{}};
+          setStatus("Erro: armazenamento bloqueado. Dados não serão salvos.","err");
         }
+      }
+    })();
+
+    const LS_KEY="pixelup_crm_leads_v1";
+    const WA_TPL_KEY="pixelup_crm_wa_template_v1";
+
+    function safeGetJSON(key, def){ try{const v=storage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
+    function safeSetJSON(key, val){ try{storage.setItem(key, JSON.stringify(val));return true;}catch(e){setStatus("Erro ao salvar (ver Console).","err");return false;} }
+
+    let waTemplate = storage.getItem(WA_TPL_KEY) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}). Podemos falar?";
+    let leads = safeGetJSON(LS_KEY, []);
+
+    // migração simples (tags -> qualif)
+    let changed=false;
+    for(const l of leads){
+      if(!l.qualif && l.tags){
+        const t=(l.tags||[]).map(x=>String(x).toLowerCase());
+        if(t.some(s=>s.includes("quente"))) l.qualif="quente";
+        else if(t.some(s=>s.includes("morno"))) l.qualif="morno";
+        else if(t.some(s=>s.includes("frio"))) l.qualif="frio";
+        changed=true;
+      }
+    }
+    if(changed) safeSetJSON(LS_KEY, leads);
+    const persist=()=>safeSetJSON(LS_KEY, leads);
+
+    const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+    const digits = s => (String(s||"").replace(/\D/g,''));
+    function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
+    const qualName = q => q==="quente"?"Led Quente": q==="morno"?"Led Morno": q==="frio"?"Led Frio":"";
+    const qualClass = q => q?("q-"+q):"";
+
+    function buildMessage(tpl, lead){
+      const map = {
+        "{{nome}}": lead.name||"",
+        "{{email}}": lead.email||"",
+        "{{whatsapp}}": lead.phone||"",
+        "{{atendente}}": lead.owner||"",
+        "{{origem}}": lead.source||"",
+        "{{estagio}}": lead.stage||"",
+        "{{data}}": lead.date||"",
+        "{{qualificacao}}": qualName(lead.qualif)||""
       };
-      reader.readAsText(file);
-      e.target.value = '';
+      let out=tpl; for(const k in map){ out=out.split(k).join(map[k]); } return out;
+    }
+
+    const form=document.getElementById("leadForm");
+    const tbody=document.querySelector("#leadsTable tbody");
+    const search=document.getElementById("search");
+    const fOwner=document.getElementById("filterOwner");
+    const fQualif=document.getElementById("filterQualif");
+    const fStart=document.getElementById("filterStart");
+    const fEnd=document.getElementById("filterEnd");
+    const exportBtn=document.getElementById("exportCsv");
+    const btnTemplate=document.getElementById("btnTemplate");
+    const tabDashboard=document.getElementById("tabDashboard");
+    const tabList=document.getElementById("tabList");
+    const tabKanban=document.getElementById("tabKanban");
+    const dashboard=document.getElementById("dashboard");
+    const tableWrap=document.getElementById("tableWrap");
+    const kanbanEl=document.getElementById("kanban");
+
+    /* ===== Modal com <dialog> ===== */
+    function showLeadDetails(lead){
+      document.querySelectorAll("dialog.px-modal").forEach(d=>d.close());
+
+      const wa = digits(lead.phone||"");
+      const waLink = wa ? `<a class="quick" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '-';
+      const mail = lead.email ? `<a class="quick" href="mailto:${encodeURIComponent(lead.email)}">Enviar e-mail</a>` : '-';
+
+      const dlg=document.createElement("dialog");
+      dlg.className="px-modal";
+      dlg.innerHTML=`
+          <div class="modal-header">
+            <h3>Detalhes do Lead</h3>
+            <div class="modal-actions">
+              <button class="btn ghost" id="editBtn">Editar</button>
+              <button class="modal-close" id="closeModalBtn">Fechar</button>
+            </div>
+          </div>
+
+          <div id="detailsView" class="dl">
+            <b>Nome</b> <div>${esc(lead.name)}</div>
+            <b>E-mail</b> <div>${esc(lead.email||"")} &nbsp; ${mail}</div>
+            <b>WhatsApp</b> <div class="mono">${esc(lead.phone||"")} &nbsp; ${waLink}</div>
+            <b>Atendente</b> <div>${esc(lead.owner||"")}</div>
+            <b>Estágio</b> <div>${esc(lead.stage)}</div>
+            <b>Origem</b> <div>${esc(lead.source||"")}</div>
+            <b>Data</b> <div>${esc(lead.date||"")}</div>
+            <b>Qualificação</b> <div><span class="qual-badge ${qualClass(lead.qualif)}">${esc(qualName(lead.qualif))||"-"}</span></div>
+            <b>Criado</b> <div>${new Date(lead.createdAt).toLocaleString()}</div>
+            <b>Atualizado</b> <div>${new Date(lead.updatedAt).toLocaleString()}</div>
+            <b>Notas</b> <div style="white-space:pre-wrap">${esc(lead.notes||"-")}</div>
+          </div>
+
+          <div class="wa-block">
+            <div class="wa-row">
+              <select id="waPreset">
+                <option value="">Selecione um modelo rápido…</option>
+                <option value="oi">Oi + apresentação</option>
+                <option value="proposta">Envio de proposta</option>
+                <option value="follow">Follow-up</option>
+              </select>
+              <button class="btn ghost" id="useDefault">Usar padrão</button>
+              <button class="btn" id="openWa">Abrir no WhatsApp</button>
+            </div>
+            <textarea id="waText" placeholder="Mensagem que será enviada no WhatsApp"></textarea>
+            <small>Placeholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}</small>
+          </div>
+
+          <form id="editForm" class="edit-grid" style="display:none;margin-top:8px">
+            <input  id="e_name"  placeholder="Nome" />
+            <input  id="e_email" placeholder="E-mail" />
+            <input  id="e_phone" placeholder="WhatsApp" />
+            <input  id="e_owner" placeholder="Atendente" />
+            <select id="e_stage">
+              <option value="novo">Novo</option>
+              <option value="qualificado">Qualificado</option>
+              <option value="proposta">Proposta</option>
+              <option value="vendido">Vendido</option>
+              <option value="perdido">Perdido</option>
+            </select>
+            <input  id="e_source" placeholder="Origem" />
+            <input  id="e_date"   type="date" />
+            <select id="e_qualif">
+              <option value="">Qualificação</option>
+              <option value="quente">Led Quente</option>
+              <option value="morno">Led Morno</option>
+              <option value="frio">Led Frio</option>
+            </select>
+            <textarea id="e_notes" placeholder="Notas"></textarea>
+            <div style="grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end">
+              <button type="button" class="btn ghost" id="cancelEdit">Cancelar</button>
+              <button type="submit" class="btn">Salvar alterações</button>
+            </div>
+          </form>
+      `;
+
+      const close = ()=>{ dlg.close(); dlg.remove(); };
+      dlg.addEventListener("close", ()=>dlg.remove());
+      dlg.querySelector("#closeModalBtn").addEventListener("click", close);
+      dlg.addEventListener("click", (e)=>{
+        const r = dlg.getBoundingClientRect();
+        const inBox = e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom;
+        if(!inBox) close();
+      });
+
+      // WhatsApp
+      const waText = dlg.querySelector("#waText");
+      const preset = dlg.querySelector("#waPreset");
+      const useDefault = dlg.querySelector("#useDefault");
+      const openWa = dlg.querySelector("#openWa");
+      const quicks = {
+        oi: "Olá {{nome}}, tudo bem? Aqui é {{atendente}} da PixelUp ({{qualificacao}}). Recebemos seu contato via {{origem}} 🙂",
+        proposta: "Oi {{nome}}! Enviei a proposta no seu e-mail {{email}} ({{qualificacao}}). Se preferir, resumo por aqui.",
+        follow: "Oi {{nome}}, viu nossa proposta? Fico à disposição. ({{qualificacao}})"
+      };
+      const fillDefault = ()=> waText.value = buildMessage(waTemplate, lead);
+      fillDefault();
+      preset.addEventListener("change", ()=>{ const k=preset.value; waText.value = k?buildMessage(quicks[k], lead):""; });
+      useDefault.addEventListener("click", fillDefault);
+      openWa.addEventListener("click", ()=>{
+        const num = digits(lead.phone||""); if(!num){ alert("Este lead não tem WhatsApp válido."); return; }
+        const text = encodeURIComponent(waText.value || buildMessage(waTemplate, lead));
+        window.open(`https://wa.me/${num}?text=${text}`, "_blank");
+        pxTrack('open_whatsapp');
+      });
+
+      // Edição
+      const details = dlg.querySelector("#detailsView");
+      const formE = dlg.querySelector("#editForm");
+      dlg.querySelector("#editBtn").addEventListener("click", ()=>{
+        formE.querySelector("#e_name").value  = lead.name||"";
+        formE.querySelector("#e_email").value = lead.email||"";
+        formE.querySelector("#e_phone").value = lead.phone||"";
+        formE.querySelector("#e_owner").value = lead.owner||"";
+        formE.querySelector("#e_stage").value = lead.stage||"novo";
+        formE.querySelector("#e_source").value= lead.source||"";
+        formE.querySelector("#e_date").value  = lead.date||"";
+        formE.querySelector("#e_qualif").value= lead.qualif||"";
+        formE.querySelector("#e_notes").value = lead.notes||"";
+        details.style.display="none"; formE.style.display="grid";
+      });
+      formE.querySelector("#cancelEdit").addEventListener("click", ()=>{
+        formE.reset(); formE.style.display="none"; details.style.display="grid";
+      });
+      formE.addEventListener("submit",(ev)=>{
+        ev.preventDefault();
+        lead.name   = formE.querySelector("#e_name").value.trim();
+        lead.email  = formE.querySelector("#e_email").value.trim();
+        lead.phone  = formE.querySelector("#e_phone").value.trim();
+        lead.owner  = formE.querySelector("#e_owner").value.trim();
+        lead.stage  = formE.querySelector("#e_stage").value;
+        lead.source = formE.querySelector("#e_source").value.trim();
+        lead.date   = formE.querySelector("#e_date").value;
+        lead.qualif = formE.querySelector("#e_qualif").value;
+        lead.notes  = formE.querySelector("#e_notes").value.trim();
+        lead.updatedAt = Date.now();
+        if(persist()){ setStatus("Alterações salvas ✅","ok"); }
+        close(); renderAll();
+      });
+
+      document.body.appendChild(dlg);
+      dlg.showModal();
+    }
+
+    /* ===== LISTA ===== */
+    function renderList(){
+      tbody.innerHTML="";
+      const q=(search?.value||"").toLowerCase();
+      const ownerFilter=fOwner?.value||"";
+      const qualFilter=fQualif?.value||"";
+      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
+
+      const filtered = leads.filter(l=>{
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();
+        const d=l.date?parseDateTs(l.date):l.updatedAt;
+        if(q && !txt.includes(q)) return false;
+        if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
+        if(qualFilter && (l.qualif||"")!==qualFilter) return false;
+        if(sTs && d<sTs) return false;
+        if(eTs && d>eTs) return false;
+        return true;
+      });
+
+      for(const l of filtered){
+        const tr=document.createElement("tr");
+        tr.className="clickable"; tr.dataset.id=l.id;
+
+        const mailCell = l.email ? `<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${l.email}</a>` : "";
+        const waDigits = digits(l.phone||"");
+        const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.phone}</a>` : (l.phone||"");
+
+        tr.innerHTML=`<td>${l.name||""}</td>
+                      <td>${mailCell}</td>
+                      <td>${waCell}</td>
+                      <td>${l.owner||""}</td>
+                      <td>${l.stage||""}</td>
+                      <td>${l.source||""}</td>
+                      <td>${l.date||""}</td>
+                      <td><span class="qual-badge ${qualClass(l.qualif)}">${qualName(l.qualif)||""}</span></td>
+                      <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
+        const td=document.createElement("td"); td.className="actions-cell";
+        const del=document.createElement("button"); del.textContent="Excluir";
+        del.addEventListener("click", (ev)=>{
+          ev.stopPropagation();
+          leads=leads.filter(x=>x.id!==l.id);
+          if(persist()){ setStatus("Lead excluído ✅","ok"); pxTrack('lead_delete'); }
+          renderAll();
+        });
+        td.appendChild(del); tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+
+      populateOwnerFilter();
+    }
+
+    document.querySelector("#leadsTable tbody").addEventListener("click", (e)=>{
+      if(e.target.closest(".actions-cell")) return;
+      const tr=e.target.closest("tr"); if(!tr) return;
+      const lead=leads.find(x=>x.id===tr.dataset.id);
+      if(lead) showLeadDetails(lead);
     });
 
-    $('#btn-reset').addEventListener('click', ()=>{
-      if (confirm('Apagar todos os dados (localStorage)?')){
-        localStorage.removeItem(STORAGE_KEY);
-        load(); renderBoard(); toast('Reset concluído');
+    function populateOwnerFilter(){
+      const selected = fOwner.value;
+      const owners=[...new Set(leads.map(l=>l.owner).filter(Boolean))].sort();
+      const options = ['<option value="">Todos atendentes</option>', ...owners.map(o=>`<option ${o===selected?'selected':''} value="${o}">${o}</option>`)];
+      fOwner.innerHTML = options.join('');
+    }
+    fOwner.addEventListener("change", renderList);
+    fQualif.addEventListener("change", renderList);
+
+    /* ===== KANBAN ===== */
+    const STAGES=["novo","qualificado","proposta","vendido","perdido"];
+
+    function openEditForLead(lead){
+      showLeadDetails(lead);
+      setTimeout(()=>{ document.querySelector('dialog.px-modal #editBtn')?.click(); }, 0);
+    }
+
+    function renderKanban(){
+      for(const stage of STAGES){
+        const body=document.getElementById("col-"+stage);
+        const count=document.getElementById("count-"+stage);
+        body.innerHTML="";
+        const items=leads.filter(x=>(x.stage||"novo")===stage);
+        count.textContent=items.length;
+
+        for(const l of items){
+          const card=document.createElement("div");
+          card.className="kcard";
+          card.draggable=true;
+          card.dataset.id=l.id;
+          card.tabIndex=0;
+
+          const edit=document.createElement("button");
+          edit.type="button"; edit.className="edit-btn"; edit.title="Editar lead"; edit.innerHTML="✏️";
+          edit.addEventListener("click",(ev)=>{ ev.stopPropagation(); openEditForLead(l); });
+          card.appendChild(edit);
+
+          const nameEl=document.createElement("div"); nameEl.className="name"; nameEl.textContent=l.name||"";
+          const metaEmail=document.createElement("div"); metaEmail.className="meta"; metaEmail.textContent=l.email||"";
+          card.appendChild(nameEl); card.appendChild(metaEmail);
+          if(l.owner){ const m=document.createElement("div"); m.className="meta"; m.textContent="Atendente: "+l.owner; card.appendChild(m); }
+          if(l.qualif){ const qb=document.createElement("span"); qb.className="qual-badge "+qualClass(l.qualif); qb.textContent=qualName(l.qualif); card.appendChild(qb); }
+
+          const wa = digits(l.phone||"");
+          if(wa){
+            const a=document.createElement("a");
+            a.className="wa-icon";
+            a.href=`https://wa.me/${wa}?text=${encodeURIComponent(buildMessage(waTemplate, l))}`;
+            a.target="_blank"; a.rel="noopener"; a.title="Abrir WhatsApp";
+            a.addEventListener("click", ev=>ev.stopPropagation());
+            a.innerHTML = `<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 0a16 16 0 1 0 0 32 16 16 0 0 0 0-32z" fill="#25D366"/><path d="M22.7 18.6c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.1.2-1.9 0-.4-.1-1-.3-2-.7-3.6-1.6-5.9-5.2-6.1-5.5-.2-.3-1.5-2-1.5-3.8 0-1.9 1-2.7 1.3-3 .3-.3.7-.4 1-.4h.7c.2 0 .6 0 .9.7.3.7 1.1 2.6 1.2 2.8.1.2.1.4 0 .6-.1.3-.2.4-.4.7-.2.2-.4.5-.5.7-.2.2-.4.5-.2.8.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.9 1.8.3.1.6.1.8-.1.2-.2 1-.9 1.2-1.2.3-.3.5-.2.8-.1.3.1 1.9.9 2.2 1.1.3.2.5.3.6.5.1.2.1.6 0 .9z" fill="#fff"/></svg>`;
+            card.appendChild(a);
+          }
+
+          const handle=document.createElement("div");
+          handle.className="drag-handle"; handle.title="Arrastar para outra coluna"; handle.textContent="⠿";
+          card.appendChild(handle);
+
+          card.addEventListener("click", ()=> showLeadDetails(l));
+          card.addEventListener("dblclick", (ev)=>{ ev.preventDefault(); openEditForLead(l); });
+          card.addEventListener("keydown", (ev)=>{
+            if(ev.key==="Enter") showLeadDetails(l);
+            if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase()==="e"){ ev.preventDefault(); openEditForLead(l); }
+          });
+
+          card.addEventListener("dragstart", e=>{
+            if(!e.target.closest(".drag-handle")){ e.preventDefault(); return; }
+            e.dataTransfer.setData("text/plain", card.dataset.id);
+          });
+
+          body.appendChild(card);
+        }
+      }
+      bindDnD();
+    }
+
+    function bindDnD(){
+      document.querySelectorAll(".kbody").forEach(col=>{
+        col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("kdrop"); });
+        col.addEventListener("dragleave", ()=>col.classList.remove("kdrop"));
+        col.addEventListener("drop", e=>{
+          e.preventDefault(); col.classList.remove("kdrop");
+          const id=e.dataTransfer.getData("text/plain");
+          const l=leads.find(x=>x.id===id);
+          if(l){
+            const toStage = col.parentElement.dataset.stage;
+            l.stage=toStage; l.updatedAt=Date.now();
+            if(persist()){ setStatus("Lead movido ✅","ok"); pxTrack('kanban_move', { to: toStage }); }
+            renderAll();
+          }
+        });
+      });
+    }
+
+    /* ===== Dashboard ===== */
+    function computeStats(){
+      const total = leads.length;
+      const vendidos = leads.filter(l=>l.stage==="vendido").length;
+      const conv = total? Math.round((vendidos/total)*100) : 0;
+
+      const byStage = {novo:0, qualificado:0, proposta:0, vendido:0, perdido:0};
+      leads.forEach(l=>{ byStage[l.stage||"novo"] = (byStage[l.stage||"novo"]||0)+1; });
+
+      const byQualif = {quente:0, morno:0, frio:0, vazio:0};
+      leads.forEach(l=>{
+        if(!l.qualif) byQualif.vazio++;
+        else byQualif[l.qualif] = (byQualif[l.qualif]||0)+1;
+      });
+
+      const byOwner = {};
+      leads.forEach(l=>{
+        const o = l.owner||"(sem atendente)";
+        if(!byOwner[o]) byOwner[o] = {total:0, vendido:0};
+        byOwner[o].total++;
+        if(l.stage==="vendido") byOwner[o].vendido++;
+      });
+
+      return {total, vendidos, conv, byStage, byQualif, byOwner};
+    }
+    function pct(part, whole){ return whole? Math.round((part/whole)*100) : 0; }
+    function renderDashboard(){
+      const {total, vendidos, conv, byStage, byQualif, byOwner} = computeStats();
+
+      document.getElementById("kpiTotal").textContent = total;
+      document.getElementById("kpiVendido").textContent = vendidos;
+      document.getElementById("kpiConv").textContent = conv + "%";
+
+      const ds = document.getElementById("dashStages"); ds.innerHTML="";
+      [["Novo","novo"],["Qualificado","qualificado"],["Proposta","proposta"],["Vendido","vendido"],["Perdido","perdido"]]
+      .forEach(([label,key])=>{
+        const v = byStage[key]||0;
+        const row = document.createElement("div"); row.className="row";
+        row.innerHTML = `<div>${label}</div><div class="bar"><div style="width:${pct(v,total)}%"></div></div><div style="text-align:right">${v}</div>`;
+        ds.appendChild(row);
+      });
+
+      const dq = document.getElementById("dashQualif"); dq.innerHTML="";
+      [["Led Quente","quente"],["Led Morno","morno"],["Led Frio","frio"],["(Sem)","vazio"]]
+      .forEach(([label,key])=>{
+        const v = byQualif[key]||0;
+        const row = document.createElement("div"); row.className="row";
+        row.innerHTML = `<div>${label}</div><div class="bar"><div style="width:${pct(v,total)}%"></div></div><div style="text-align:right">${v}</div>`;
+        dq.appendChild(row);
+      });
+
+      const tb = document.querySelector("#dashOwners tbody"); tb.innerHTML="";
+      Object.entries(byOwner).sort((a,b)=>b[1].total-a[1].total).forEach(([owner,vals])=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML = `<td>${esc(owner)}</td><td>${vals.total}</td><td>${vals.vendido}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    /* ===== Export CSV ===== */
+    function toCsvRow(arr){return arr.map(v=>('"'+String(v??"").replace(/"/g,'""')+'"')).join(",");}
+    function downloadCsv(filename, csv){
+      const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    exportBtn.addEventListener("click", ()=>{
+      const headers=["id","nome","email","whatsapp","atendente","estagio","origem","data","qualificacao","notas","criado_em","atualizado_em"];
+      const rows=[headers];
+      const ownerFilter=fOwner?.value||"";
+      const qualFilter=fQualif?.value||"";
+      const q=(search?.value||"").toLowerCase();
+      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
+
+      const filtered=leads.filter(l=>{
+        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();
+        const d=l.date?parseDateTs(l.date):l.updatedAt;
+        if(q && !txt.includes(q)) return false;
+        if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
+        if(qualFilter && (l.qualif||"")!==qualFilter) return false;
+        if(sTs && d<sTs) return false;
+        if(eTs && d>eTs) return false;
+        return true;
+      });
+
+      for(const l of filtered){
+        rows.push([l.id,l.name||"",l.email||"",l.phone||"",l.owner||"",
+          l.stage||"",l.source||"",l.date||"",qualName(l.qualif)||"",
+          l.notes||"",new Date(l.createdAt).toISOString(),new Date(l.updatedAt).toISOString()]);
+      }
+      const csv = rows.map(toCsvRow).join("\n");
+      downloadCsv(`leads_pixelup_${new Date().toISOString().slice(0,10)}.csv`, csv);
+    });
+
+    /* ===== Form ===== */
+    if(form){
+      form.addEventListener("submit", e=>{
+        e.preventDefault();
+        const lead={id:String(Date.now()),
+          name:document.getElementById("name").value.trim(),
+          email:document.getElementById("email").value.trim(),
+          phone:document.getElementById("phone").value.trim(),
+          stage:document.getElementById("stage").value,
+          owner:document.getElementById("owner").value.trim(),
+          source:document.getElementById("source").value.trim(),
+          date:document.getElementById("date").value,
+          qualif:document.getElementById("qualif").value,
+          notes:document.getElementById("notes").value.trim(),
+          createdAt:Date.now(),updatedAt:Date.now()};
+        if(!lead.name){alert("Informe o nome");return;}
+        leads.push(lead);
+        if(persist()){
+          setStatus("Lead salvo ✅","ok");
+          pxTrack('lead_save', { stage: lead.stage || 'novo' });
+          form.reset();
+          renderAll();
+        }
+      });
+    }
+
+    /* ===== Template WhatsApp ===== */
+    btnTemplate.addEventListener("click", ()=>{
+      const novo = prompt("Edite o texto padrão do WhatsApp.\nPlaceholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}", waTemplate);
+      if(novo!=null){
+        waTemplate=novo;
+        try{ storage.setItem(WA_TPL_KEY, waTemplate); setStatus("Modelo de WhatsApp salvo ✅","ok"); }
+        catch(e){ setStatus("Erro ao salvar modelo","err"); }
       }
     });
 
-    // === Inicialização ========================================================
-    load();
-    renderBoard();
+    /* ===== Abas ===== */
+    tabDashboard.onclick=()=>{
+      tabDashboard.classList.add("active"); tabList.classList.remove("active"); tabKanban.classList.remove("active");
+      dashboard.style.display="block"; tableWrap.style.display="none"; kanbanEl.classList.remove("visible"); kanbanEl.style.display="none";
+      renderDashboard();
+    };
+    tabList.onclick=()=>{
+      tabList.classList.add("active"); tabDashboard.classList.remove("active"); tabKanban.classList.remove("active");
+      tableWrap.style.display="block"; dashboard.style.display="none"; kanbanEl.classList.remove("visible"); kanbanEl.style.display="none";
+    };
+    tabKanban.onclick=()=>{
+      tabKanban.classList.add("active"); tabList.classList.remove("active"); tabDashboard.classList.remove("active");
+      kanbanEl.style.display="grid"; kanbanEl.classList.add("visible");
+      dashboard.style.display="none"; tableWrap.style.display="none";
+      renderKanban();
+    };
 
-    // Acessibilidade: mover por menu contextual no mobile (sem DnD)
-    document.addEventListener('contextmenu', (e)=>{
-      const card = e.target.closest('.card'); if (!card) return;
-      e.preventDefault();
-      const id = card.dataset.id;
-      const lead = state.leads.find(l => l.id === id); if (!lead) return;
-      const nomes = state.columns.map(c=>c.name);
-      const destino = prompt('Mover para qual coluna?\n' + nomes.map((n,i)=> `${i+1}. ${n}`).join('\n'));
-      const idx = Number(destino)-1;
-      if (!isNaN(idx) && state.columns[idx]){
-        lead.status = state.columns[idx].key; save(); renderCards(); toast('Lead movido');
-      }
-    });
+    [search,fOwner,fQualif,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",()=>{renderList(); renderDashboard();}));
+
+    function renderAll(){renderList();renderKanban();renderDashboard();}
+    renderAll();
+  });
   </script>
-
-  <!--
-  OPCIONAL: Métricas (ex.: Plausible). Cole sua tag abaixo se quiser medir uso.
-  <script defer data-domain="seu-dominio.vercel.app" src="https://plausible.io/js/script.js"></script>
-  -->
 </body>
 </html>
