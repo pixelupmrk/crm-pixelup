@@ -8,29 +8,24 @@
   <!-- Telemetria simples (webhook.site) — pronto para usar -->
   <script>
     (function () {
-      // 1) ID do cliente via ?cid=... (ex.: ?cid=LOJA-CENTRO)
       const CID_KEY = 'px_client_id';
       const q = new URLSearchParams(location.search);
       const cidFromUrl = q.get('cid');
       if (cidFromUrl) localStorage.setItem(CID_KEY, cidFromUrl);
 
       window.CLIENT_ID   = localStorage.getItem(CID_KEY) || 'CLIENTE-DEMO';
-      window.APP_VERSION = '1.0.0';
+      window.APP_VERSION = '1.0.1'; // bump após correção do Kanban
 
-      // 2) URL do webhook:
-      //    - preencha aqui (opcional) OU
-      //    - passe na URL como ?wh=https%3A%2F%2Fwebhook.site%2FSEU-ID
-      const DEFAULT_WEBHOOK_URL = ''; // ex.: 'https://webhook.site/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-      const whFromUrl = q.get('wh');  // já pode vir percent-encoded
+      const DEFAULT_WEBHOOK_URL = '';
+      const whFromUrl = q.get('wh');
       const whStored  = localStorage.getItem('px_webhook_url');
 
       if (whFromUrl) localStorage.setItem('px_webhook_url', decodeURIComponent(whFromUrl));
       window.WEBHOOK_URL = whFromUrl ? decodeURIComponent(whFromUrl) : (whStored || DEFAULT_WEBHOOK_URL);
 
-      // 3) Função de telemetria: pxTrack('nome_do_evento', { props })
       window.pxTrack = function (eventName, props) {
         try {
-          if (!window.WEBHOOK_URL) return; // se não tiver URL, não envia
+          if (!window.WEBHOOK_URL) return;
           const payload = {
             event: eventName,
             client: window.CLIENT_ID,
@@ -111,6 +106,7 @@
 
     .kcard{position:relative;background:#0f2132;border:1px solid #17324a;border-radius:10px;padding:10px;cursor:grab;overflow:hidden}
     .kcard:active{cursor:grabbing}
+    .kcard.dragging{opacity:.8;} /* feedback enquanto arrasta */
     .kdrop{outline:2px dashed #18a4ff;outline-offset:-6px}
     .kcard .name{font-weight:600;margin-bottom:2px}
     .kcard .meta{opacity:.8}
@@ -352,7 +348,7 @@
     const esc = s => String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
     const digits = s => (String(s||"").replace(/\D/g,''));
     function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
-    const qualName = q => q==="quente"?"Led Quente": q==="morno"?"Led Morno": q==="frio"?"Led Frio":"";
+    const qualName = q => q==="quente"?"Led Quente": q==="morno"?"Led Morno": q==="frio"?"Led Frio":""; // mantém texto original
     const qualClass = q => q?("q-"+q):"";
 
     function buildMessage(tpl, lead){
@@ -459,7 +455,7 @@
               <button type="submit" class="btn">Salvar alterações</button>
             </div>
           </form>
-      `;
+      ];
 
       const close = ()=>{ dlg.close(); dlg.remove(); };
       dlg.addEventListener("close", ()=>dlg.remove());
@@ -470,7 +466,6 @@
         if(!inBox) close();
       });
 
-      // WhatsApp
       const waText = dlg.querySelector("#waText");
       const preset = dlg.querySelector("#waPreset");
       const useDefault = dlg.querySelector("#useDefault");
@@ -491,7 +486,6 @@
         pxTrack('open_whatsapp');
       });
 
-      // Edição
       const details = dlg.querySelector("#detailsView");
       const formE = dlg.querySelector("#editForm");
       dlg.querySelector("#editBtn").addEventListener("click", ()=>{
@@ -652,9 +646,17 @@
             if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase()==="e"){ ev.preventDefault(); openEditForLead(l); }
           });
 
+          // >>> CORREÇÃO: arrastar por qualquer parte do card
           card.addEventListener("dragstart", e=>{
-            if(!e.target.closest(".drag-handle")){ e.preventDefault(); return; }
-            e.dataTransfer.setData("text/plain", card.dataset.id);
+            const id = card.dataset.id;
+            if (e.dataTransfer) {
+              e.dataTransfer.effectAllowed = "move";
+              try { e.dataTransfer.setData("text/plain", id); } catch(_) {}
+            }
+            card.classList.add("dragging");
+          });
+          card.addEventListener("dragend", ()=>{
+            card.classList.remove("dragging");
           });
 
           body.appendChild(card);
@@ -663,16 +665,23 @@
       bindDnD();
     }
 
+    // >>> CORREÇÃO: dropEffect + fallback de id
     function bindDnD(){
       document.querySelectorAll(".kbody").forEach(col=>{
-        col.addEventListener("dragover", e=>{ e.preventDefault(); col.classList.add("kdrop"); });
+        col.addEventListener("dragover", e=>{
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+          col.classList.add("kdrop");
+        });
         col.addEventListener("dragleave", ()=>col.classList.remove("kdrop"));
         col.addEventListener("drop", e=>{
           e.preventDefault(); col.classList.remove("kdrop");
-          const id=e.dataTransfer.getData("text/plain");
-          const l=leads.find(x=>x.id===id);
+          const dragged = document.querySelector(".kcard.dragging");
+          const id = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || dragged?.dataset.id;
+          if (!id) return;
+          const l = leads.find(x=>x.id===id);
           if(l){
-            const toStage = col.parentElement.dataset.stage;
+            const toStage = col.closest(".kcol")?.dataset.stage || col.parentElement.dataset.stage;
             l.stage=toStage; l.updatedAt=Date.now();
             if(persist()){ setStatus("Lead movido ✅","ok"); pxTrack('kanban_move', { to: toStage }); }
             renderAll();
