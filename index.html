@@ -14,7 +14,7 @@
       if (cidFromUrl) localStorage.setItem(CID_KEY, cidFromUrl);
 
       window.CLIENT_ID   = localStorage.getItem(CID_KEY) || 'CLIENTE-DEMO';
-      window.APP_VERSION = '1.1.1';
+      window.APP_VERSION = '1.1.2';
 
       const DEFAULT_WEBHOOK_URL = '';
       const whFromUrl = q.get('wh');
@@ -864,15 +864,17 @@
     const show = (el,v)=> el && (el.style.display = v ? '' : 'none');
     const msg  = (t,cls)=>{ if(authMsg){ authMsg.textContent=t||''; authMsg.className='status '+(cls||''); } };
 
+    // traduz erros + inclui configuration-not-found
     function traduzErroAuth(err){
       const code = err?.code || '';
       switch(code){
-        case 'auth/weak-password': return 'A senha precisa ter pelo menos 6 caracteres.';
-        case 'auth/invalid-email': return 'E-mail inválido.';
-        case 'auth/email-already-in-use': return 'Este e-mail já está cadastrado.';
-        case 'auth/operation-not-allowed': return 'Método E-mail/Senha não habilitado no Firebase.';
-        case 'auth/unauthorized-domain': return 'Domínio não autorizado nas configurações do Authentication.';
-        case 'auth/network-request-failed': return 'Falha de rede (rode via http/https e verifique conexão).';
+        case 'auth/configuration-not-found': return 'Authentication não iniciado no projeto. No Firebase Console, clique em "Começar" em Authentication e ative E-mail/Senha.';
+        case 'auth/operation-not-allowed':   return 'Método E-mail/Senha não habilitado no Firebase.';
+        case 'auth/unauthorized-domain':     return 'Domínio não autorizado nas configurações do Authentication.';
+        case 'auth/weak-password':           return 'A senha precisa ter pelo menos 6 caracteres.';
+        case 'auth/invalid-email':           return 'E-mail inválido.';
+        case 'auth/email-already-in-use':    return 'Este e-mail já está cadastrado.';
+        case 'auth/network-request-failed':  return 'Falha de rede (rode via http/https e verifique conexão).';
         default: return (err?.message || 'Erro ao autenticar.');
       }
     }
@@ -898,7 +900,7 @@
 
     btnLogout?.addEventListener('click', ()=> signOut(auth));
 
-    // chaves por usuário
+    // chaves por usuário (para o CRM)
     window.AUTH = { user: null };
     window.getLSKey  = () => "pixelup_crm_leads_v1_" + (window.AUTH?.user?.uid || "guest");
     window.getTplKey = () => "pixelup_crm_wa_template_v1_" + (window.AUTH?.user?.uid || "guest");
