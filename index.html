@@ -3,40 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CRM PixelUp — Dashboard + Lista + Kanban + Login</title>
-
-  <!-- Telemetria simples (opcional) -->
-  <script>
-    (function () {
-      const CID_KEY = 'px_client_id';
-      const q = new URLSearchParams(location.search);
-      const cidFromUrl = q.get('cid');
-      if (cidFromUrl) localStorage.setItem(CID_KEY, cidFromUrl);
-
-      window.CLIENT_ID   = localStorage.getItem(CID_KEY) || 'CLIENTE-DEMO';
-      window.APP_VERSION = '1.1.2';
-
-      const DEFAULT_WEBHOOK_URL = '';
-      const whFromUrl = q.get('wh');
-      const whStored  = localStorage.getItem('px_webhook_url');
-      if (whFromUrl) localStorage.setItem('px_webhook_url', decodeURIComponent(whFromUrl));
-      window.WEBHOOK_URL = whFromUrl ? decodeURIComponent(whFromUrl) : (whStored || DEFAULT_WEBHOOK_URL);
-
-      window.pxTrack = function (eventName, props) {
-        try {
-          if (!window.WEBHOOK_URL) return;
-          const payload = { event: eventName, client: window.CLIENT_ID, version: window.APP_VERSION, ts: new Date().toISOString(), ...(props||{}) };
-          const body = JSON.stringify(payload);
-          if (navigator.sendBeacon) {
-            const blob = new Blob([body], { type: 'application/json' });
-            navigator.sendBeacon(window.WEBHOOK_URL, blob);
-          } else {
-            fetch(window.WEBHOOK_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body }).catch(()=>{});
-          }
-        } catch(_) {}
-      };
-    })();
-  </script>
+  <title>CRM PixelUp — Lista + Kanban + Login</title>
 
   <style>
     *{box-sizing:border-box}
@@ -301,67 +268,36 @@
   <!-- ===== SCRIPT DO CRM ===== -->
   <script>
   document.addEventListener("DOMContentLoaded", function(){
-    pxTrack('app_open'); setInterval(()=>pxTrack('heartbeat'), 15*60*1000);
-
     const storageStatus = document.getElementById("storageStatus");
-    function setStatus(msg, cls){ storageStatus.textContent = msg; storageStatus.className = "status " + (cls||""); }
+    const setStatus = (msg, cls)=>{ storageStatus.textContent=msg; storageStatus.className="status "+(cls||""); };
 
-    // STORAGE robusto
-    const memory = {};
-    let storeType = "localStorage";
-    const store = {
-      getItem(k){
-        try{ const v=localStorage.getItem(k); if(v!=null) return v; }catch(_){}
-        try{ const v=sessionStorage.getItem(k); if(v!=null) return v; }catch(_){}
-        return Object.prototype.hasOwnProperty.call(memory,k) ? memory[k] : null;
-      },
-      setItem(k,v){
-        let ok=false;
-        try{ localStorage.setItem(k,v); ok=true; }catch(_){}
-        try{ sessionStorage.setItem(k,v); ok=true; if(!ok) storeType="sessionStorage"; }catch(_){}
-        if(!ok){ memory[k]=v; storeType="memory"; } return ok;
-      },
-      removeItem(k){ try{localStorage.removeItem(k);}catch(_){} try{sessionStorage.removeItem(k);}catch(_){} delete memory[k]; }
+    // storage robusto
+    const memory={}; let storeType="localStorage";
+    const store={
+      getItem(k){try{const v=localStorage.getItem(k);if(v!=null)return v;}catch(_){}try{const v=sessionStorage.getItem(k);if(v!=null)return v;}catch(_){}return Object.prototype.hasOwnProperty.call(memory,k)?memory[k]:null;},
+      setItem(k,v){let ok=false;try{localStorage.setItem(k,v);ok=true;}catch(_){}try{sessionStorage.setItem(k,v);ok=true;if(!ok)storeType="sessionStorage";}catch(_){}if(!ok){memory[k]=v;storeType="memory";}return ok;},
+      removeItem(k){try{localStorage.removeItem(k);}catch(_){}try{sessionStorage.removeItem(k);}catch(_){}delete memory[k];}
     };
-    (function initStorageStatus(){
-      try{ localStorage.setItem("__t","1"); localStorage.removeItem("__t"); storeType="localStorage"; setStatus("Armazenamento: localStorage ativo ✅","ok"); }
-      catch(e1){ try{ sessionStorage.setItem("__t","1"); sessionStorage.removeItem("__t"); storeType="sessionStorage"; setStatus("Aviso: usando sessionStorage.","warn"); }
-      catch(e2){ storeType="memory"; setStatus("Erro: armazenamento bloqueado (somente memória).","err"); } }
-    })();
+    (function(){try{localStorage.setItem("__t","1");localStorage.removeItem("__t");storeType="localStorage";setStatus("Armazenamento: localStorage ativo ✅","ok");}
+    catch(e1){try{sessionStorage.setItem("__t","1");sessionStorage.removeItem("__t");storeType="sessionStorage";setStatus("Aviso: usando sessionStorage.","warn");}
+    catch(e2){storeType="memory";setStatus("Erro: armazenamento bloqueado (somente memória).","err");}}})();
 
-    // CHAVES por usuário (vindas do script de Auth; fallback guest)
-    const __getLSKey  = () => (window.getLSKey ? window.getLSKey() : "pixelup_crm_leads_v1_guest");
-    const __getTplKey = () => (window.getTplKey ? window.getTplKey() : "pixelup_crm_wa_template_v1_guest");
+    // chaves por usuário (vem do script de Auth)
+    const LSKEY = ()=> (window.getLSKey?window.getLSKey():"pixelup_crm_leads_v1_guest");
+    const TPLKEY= ()=> (window.getTplKey?window.getTplKey():"pixelup_crm_wa_template_v1_guest");
 
-    function safeGetJSON(key, def){ try{const v=store.getItem(key);return v?JSON.parse(v):def;}catch(_){return def;} }
-    function safeSetJSON(key, val){ try{const s=JSON.stringify(val); const ok=store.setItem(key,s); if(!ok) throw 0; return true;}catch(_){ setStatus("Erro ao salvar (ver Console).","err"); return false; } }
+    const getJSON=(k,d)=>{try{const v=store.getItem(k);return v?JSON.parse(v):d;}catch(_){return d;}};
+    const setJSON=(k,v)=>{try{const s=JSON.stringify(v);const ok=store.setItem(k,s);if(!ok)throw 0;return true;}catch(_){setStatus("Erro ao salvar.","err");return false;}};
 
-    let waTemplate = store.getItem(__getTplKey()) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}). Podemos falar?";
-    let leads = safeGetJSON(__getLSKey(), []);
+    let waTemplate = store.getItem(TPLKEY()) || "Olá {{nome}}! Aqui é {{atendente}} da PixelUp. Vi seu contato via {{origem}} ({{qualificacao}}). Podemos falar?";
+    let leads = getJSON(LSKEY(), []);
 
-    // migração tags -> qualif
-    let changed=false;
-    for(const l of leads){
-      if(!l.qualif && l.tags){
-        const t=(l.tags||[]).map(x=>String(x).toLowerCase());
-        if(t.some(s=>s.includes("quente"))) l.qualif="quente";
-        else if(t.some(s=>s.includes("morno"))) l.qualif="morno";
-        else if(t.some(s=>s.includes("frio"))) l.qualif="frio";
-        changed=true;
-      }
-    }
-    if(changed) safeSetJSON(__getLSKey(), leads);
-    const persist=()=>safeSetJSON(__getLSKey(), leads);
-
-    const esc = s => String(s||"").replace(/[&<>\"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
-    const digits = s => String(s||"").replace(/\D/g,'');
-    function parseDateTs(str,end){if(!str)return null;let y,m,d;if(str.includes("-")){const p=str.split("-");y=+p[0];m=+p[1]-1;d=+p[2];}else if(str.includes("/")){const p=str.split("/");d=+p[0];m=+p[1]-1;y=+p[2];}else return null;return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
-    const qualName = q => q==="quente"?"Led Quente": q==="morno"?"Led Morno": q==="frio"?"Led Frio":"";
-    const qualClass = q => q?("q-"+q):"";
-    function buildMessage(tpl, lead){
-      const map = {"{{nome}}":lead.name||"","{{email}}":lead.email||"","{{whatsapp}}":lead.phone||"","{{atendente}}":lead.owner||"","{{origem}}":lead.source||"","{{estagio}}":lead.stage||"","{{data}}":lead.date||"","{{qualificacao}}":qualName(lead.qualif)||""};
-      let out=tpl; for(const k in map){ out=out.split(k).join(map[k]); } return out;
-    }
+    const esc = s=>String(s||"").replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+    const digits = s=>String(s||"").replace(/\D/g,'');
+    function parseDateTs(str,end){if(!str)return null;let y,m,d; if(str.includes("-")){[y,m,d]=str.split("-");y=+y;m=+m-1;d=+d;}else if(str.includes("/")){[d,m,y]=str.split("/");d=+d;m=+m-1;y=+y;} else return null; return new Date(y,m,d,end?23:0,end?59:0,end?59:0,end?999:0).getTime();}
+    const qualName=q=>q==="quente"?"Led Quente":q==="morno"?"Led Morno":q==="frio"?"Led Frio":"";
+    const qualClass=q=>q?("q-"+q):"";
+    function buildMsg(tpl,lead){const map={"{{nome}}":lead.name||"","{{email}}":lead.email||"","{{whatsapp}}":lead.phone||"","{{atendente}}":lead.owner||"","{{origem}}":lead.source||"","{{estagio}}":lead.stage||"","{{data}}":lead.date||"","{{qualificacao}}":qualName(lead.qualif)||""};let out=tpl;for(const k in map){out=out.split(k).join(map[k]);}return out;}
 
     const form=document.getElementById("leadForm");
     const tbody=document.querySelector("#leadsTable tbody");
@@ -379,14 +315,9 @@
     const tableWrap=document.getElementById("tableWrap");
     const kanbanEl=document.getElementById("kanban");
 
-    /* ===== Modal (detalhes/editar) ===== */
     function showLeadDetails(lead){
       document.querySelectorAll("dialog.px-modal").forEach(d=>d.close());
-
-      const wa = digits(lead.phone||"");
-      const waLink = wa ? `<a class="quick" href="https://wa.me/${wa}" target="_blank" rel="noopener">Abrir no WhatsApp</a>` : '-';
-      const mail = lead.email ? `<a class="quick" href="mailto:${encodeURIComponent(lead.email)}">Enviar e-mail</a>` : '-';
-
+      const wa=digits(lead.phone||"");
       const dlg=document.createElement("dialog");
       dlg.className="px-modal";
       dlg.innerHTML=`
@@ -397,19 +328,18 @@
             <button class="modal-close" id="closeModalBtn">Fechar</button>
           </div>
         </div>
-
         <div id="detailsView" class="dl">
-          <b>Nome</b> <div>${esc(lead.name)}</div>
-          <b>E-mail</b> <div>${esc(lead.email||"")} &nbsp; ${mail}</div>
-          <b>WhatsApp</b> <div class="mono">${esc(lead.phone||"")} &nbsp; ${waLink}</div>
-          <b>Atendente</b> <div>${esc(lead.owner||"")}</div>
-          <b>Estágio</b> <div>${esc(lead.stage)}</div>
-          <b>Origem</b> <div>${esc(lead.source||"")}</div>
-          <b>Data</b> <div>${esc(lead.date||"")}</div>
-          <b>Qualificação</b> <div><span class="qual-badge ${qualClass(lead.qualif)}">${esc(qualName(lead.qualif))||"-"}</span></div>
-          <b>Criado</b> <div>${new Date(lead.createdAt).toLocaleString()}</div>
-          <b>Atualizado</b> <div>${new Date(lead.updatedAt).toLocaleString()}</div>
-          <b>Notas</b> <div style="white-space:pre-wrap">${esc(lead.notes||"-")}</div>
+          <b>Nome</b><div>${esc(lead.name)}</div>
+          <b>E-mail</b><div>${esc(lead.email||"")}${lead.email?` &nbsp; <a class="quick" href="mailto:${encodeURIComponent(lead.email)}">Enviar</a>`:''}</div>
+          <b>WhatsApp</b><div class="mono">${esc(lead.phone||"")}${wa?` &nbsp; <a class="quick" href="https://wa.me/${wa}" target="_blank">Abrir</a>`:''}</div>
+          <b>Atendente</b><div>${esc(lead.owner||"")}</div>
+          <b>Estágio</b><div>${esc(lead.stage)}</div>
+          <b>Origem</b><div>${esc(lead.source||"")}</div>
+          <b>Data</b><div>${esc(lead.date||"")}</div>
+          <b>Qualificação</b><div><span class="qual-badge ${qualClass(lead.qualif)}">${qualName(lead.qualif)||"-"}</span></div>
+          <b>Criado</b><div>${new Date(lead.createdAt).toLocaleString()}</div>
+          <b>Atualizado</b><div>${new Date(lead.updatedAt).toLocaleString()}</div>
+          <b>Notas</b><div style="white-space:pre-wrap">${esc(lead.notes||"-")}</div>
         </div>
 
         <div class="wa-block">
@@ -428,25 +358,17 @@
         </div>
 
         <form id="editForm" class="edit-grid" style="display:none;margin-top:8px">
-          <input  id="e_name"  placeholder="Nome" />
-          <input  id="e_email" placeholder="E-mail" />
-          <input  id="e_phone" placeholder="WhatsApp" />
-          <input  id="e_owner" placeholder="Atendente" />
+          <input id="e_name" placeholder="Nome"/>
+          <input id="e_email" placeholder="E-mail"/>
+          <input id="e_phone" placeholder="WhatsApp"/>
+          <input id="e_owner" placeholder="Atendente"/>
           <select id="e_stage">
-            <option value="novo">Novo</option>
-            <option value="qualificado">Qualificado</option>
-            <option value="proposta">Proposta</option>
-            <option value="vendido">Vendido</option>
-            <option value="perdido">Perdido</option>
+            <option value="novo">Novo</option><option value="qualificado">Qualificado</option>
+            <option value="proposta">Proposta</option><option value="vendido">Vendido</option><option value="perdido">Perdido</option>
           </select>
-          <input  id="e_source" placeholder="Origem" />
-          <input  id="e_date"   type="date" />
-          <select id="e_qualif">
-            <option value="">Qualificação</option>
-            <option value="quente">Led Quente</option>
-            <option value="morno">Led Morno</option>
-            <option value="frio">Led Frio</option>
-          </select>
+          <input id="e_source" placeholder="Origem"/>
+          <input id="e_date" type="date"/>
+          <select id="e_qualif"><option value="">Qualificação</option><option value="quente">Led Quente</option><option value="morno">Led Morno</option><option value="frio">Led Frio</option></select>
           <textarea id="e_notes" placeholder="Notas"></textarea>
           <div style="grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn ghost" id="cancelEdit">Cancelar</button>
@@ -454,469 +376,88 @@
           </div>
         </form>
       `;
+      const close=()=>{dlg.close();dlg.remove();};
+      dlg.addEventListener("close",()=>dlg.remove());
+      dlg.querySelector("#closeModalBtn").addEventListener("click",close);
+      dlg.addEventListener("click",(e)=>{const r=dlg.getBoundingClientRect();if(!(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom))close();});
 
-      const close = ()=>{ dlg.close(); dlg.remove(); };
-      dlg.addEventListener("close", ()=>dlg.remove());
-      dlg.querySelector("#closeModalBtn").addEventListener("click", close);
-      dlg.addEventListener("click", (e)=>{
-        const r = dlg.getBoundingClientRect();
-        const inBox = e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom;
-        if(!inBox) close();
-      });
+      // WA
+      const waText=dlg.querySelector("#waText");
+      const quicks={oi:"Olá {{nome}}, tudo bem? Aqui é {{atendente}} da PixelUp ({{qualificacao}}). Recebemos seu contato via {{origem}} 🙂",proposta:"Oi {{nome}}! Enviei a proposta no seu e-mail {{email}} ({{qualificacao}}). Se preferir, resumo por aqui.",follow:"Oi {{nome}}, viu nossa proposta? Fico à disposição. ({{qualificacao}})"};
+      const fillDefault=()=>waText.value=buildMsg(waTemplate,lead); fillDefault();
+      dlg.querySelector("#waPreset").addEventListener("change",ev=>{const k=ev.target.value;waText.value=k?buildMsg(quicks[k],lead):"";});
+      dlg.querySelector("#useDefault").addEventListener("click",fillDefault);
+      dlg.querySelector("#openWa").addEventListener("click",()=>{const num=digits(lead.phone||"");if(!num){alert("Este lead não tem WhatsApp válido.");return;}const text=encodeURIComponent(waText.value||buildMsg(waTemplate,lead));window.open(`https://wa.me/${num}?text=${text}`,"_blank");});
 
-      // WhatsApp
-      const waText = dlg.querySelector("#waText");
-      const preset = dlg.querySelector("#waPreset");
-      const useDefault = dlg.querySelector("#useDefault");
-      const openWa = dlg.querySelector("#openWa");
-      const quicks = {
-        oi: "Olá {{nome}}, tudo bem? Aqui é {{atendente}} da PixelUp ({{qualificacao}}). Recebemos seu contato via {{origem}} 🙂",
-        proposta: "Oi {{nome}}! Enviei a proposta no seu e-mail {{email}} ({{qualificacao}}). Se preferir, resumo por aqui.",
-        follow: "Oi {{nome}}, viu nossa proposta? Fico à disposição. ({{qualificacao}})"
-      };
-      const fillDefault = ()=> waText.value = buildMessage(waTemplate, lead);
-      fillDefault();
-      preset.addEventListener("change", ()=>{ const k=preset.value; waText.value = k?buildMessage(quicks[k], lead):""; });
-      useDefault.addEventListener("click", fillDefault);
-      openWa.addEventListener("click", ()=>{
-        const num = digits(lead.phone||""); if(!num){ alert("Este lead não tem WhatsApp válido."); return; }
-        const text = encodeURIComponent(waText.value || buildMessage(waTemplate, lead));
-        window.open(`https://wa.me/${num}?text=${text}`, "_blank");
-        pxTrack('open_whatsapp');
-      });
+      // Editar
+      const details=dlg.querySelector("#detailsView");
+      const formE=dlg.querySelector("#editForm");
+      dlg.querySelector("#editBtn").addEventListener("click",()=>{formE.querySelector("#e_name").value=lead.name||"";formE.querySelector("#e_email").value=lead.email||"";formE.querySelector("#e_phone").value=lead.phone||"";formE.querySelector("#e_owner").value=lead.owner||"";formE.querySelector("#e_stage").value=lead.stage||"novo";formE.querySelector("#e_source").value=lead.source||"";formE.querySelector("#e_date").value=lead.date||"";formE.querySelector("#e_qualif").value=lead.qualif||"";formE.querySelector("#e_notes").value=lead.notes||"";details.style.display="none";formE.style.display="grid";});
+      formE.querySelector("#cancelEdit").addEventListener("click",()=>{formE.reset();formE.style.display="none";details.style.display="grid";});
+      formE.addEventListener("submit",(ev)=>{ev.preventDefault();lead.name=formE.querySelector("#e_name").value.trim();lead.email=formE.querySelector("#e_email").value.trim();lead.phone=formE.querySelector("#e_phone").value.trim();lead.owner=formE.querySelector("#e_owner").value.trim();lead.stage=formE.querySelector("#e_stage").value;lead.source=formE.querySelector("#e_source").value.trim();lead.date=formE.querySelector("#e_date").value;lead.qualif=formE.querySelector("#e_qualif").value;lead.notes=formE.querySelector("#e_notes").value.trim();lead.updatedAt=Date.now();if(setJSON(LSKEY(),leads)){setStatus("Alterações salvas ✅","ok");}close();renderAll();});
 
-      // Edição
-      const details = dlg.querySelector("#detailsView");
-      const formE = dlg.querySelector("#editForm");
-      dlg.querySelector("#editBtn").addEventListener("click", ()=>{
-        formE.querySelector("#e_name").value  = lead.name||"";
-        formE.querySelector("#e_email").value = lead.email||"";
-        formE.querySelector("#e_phone").value = lead.phone||"";
-        formE.querySelector("#e_owner").value = lead.owner||"";
-        formE.querySelector("#e_stage").value = lead.stage||"novo";
-        formE.querySelector("#e_source").value= lead.source||"";
-        formE.querySelector("#e_date").value  = lead.date||"";
-        formE.querySelector("#e_qualif").value= lead.qualif||"";
-        formE.querySelector("#e_notes").value = lead.notes||"";
-        details.style.display="none"; formE.style.display="grid";
-      });
-      formE.querySelector("#cancelEdit").addEventListener("click", ()=>{
-        formE.reset(); formE.style.display="none"; details.style.display="grid";
-      });
-      formE.addEventListener("submit",(ev)=>{
-        ev.preventDefault();
-        lead.name   = formE.querySelector("#e_name").value.trim();
-        lead.email  = formE.querySelector("#e_email").value.trim();
-        lead.phone  = formE.querySelector("#e_phone").value.trim();
-        lead.owner  = formE.querySelector("#e_owner").value.trim();
-        lead.stage  = formE.querySelector("#e_stage").value;
-        lead.source = formE.querySelector("#e_source").value.trim();
-        lead.date   = formE.querySelector("#e_date").value;
-        lead.qualif = formE.querySelector("#e_qualif").value;
-        lead.notes  = formE.querySelector("#e_notes").value.trim();
-        lead.updatedAt = Date.now();
-        if(persist()){ setStatus("Alterações salvas ✅","ok"); }
-        close(); renderAll();
-      });
-
-      document.body.appendChild(dlg);
-      dlg.showModal();
+      document.body.appendChild(dlg); dlg.showModal();
     }
 
-    /* ===== LISTA ===== */
+    // LISTA
+    function populateOwnerFilter(){const selected=fOwner.value;const owners=[...new Set(leads.map(l=>l.owner).filter(Boolean))].sort();fOwner.innerHTML=['<option value="">Todos atendentes</option>',...owners.map(o=>`<option ${o===selected?'selected':''} value="${o}">${o}</option>`)].join('');}
     function renderList(){
-      tbody.innerHTML="";
-      const q=(search?.value||"").toLowerCase();
-      const ownerFilter=fOwner?.value||"";
-      const qualFilter=fQualif?.value||"";
-      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
-
-      const filtered = leads.filter(l=>{
-        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();
-        const d=l.date?parseDateTs(l.date):l.updatedAt;
-        if(q && !txt.includes(q)) return false;
-        if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
-        if(qualFilter && (l.qualif||"")!==qualFilter) return false;
-        if(sTs && d<sTs) return false;
-        if(eTs && d>eTs) return false;
-        return true;
-      });
-
+      tbody.innerHTML="";const q=(search?.value||"").toLowerCase();const owner=fOwner?.value||"";const qual=fQualif?.value||"";const sTs=parseDateTs(fStart?.value);const eTs=parseDateTs(fEnd?.value,true);
+      const filtered=leads.filter(l=>{const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+(qualName(l.qualif))).toLowerCase();const d=l.date?parseDateTs(l.date):l.updatedAt;if(q&&!txt.includes(q))return false;if(owner&&(l.owner||"")!==owner)return false;if(qual&&(l.qualif||"")!==qual)return false;if(sTs&&d<sTs)return false;if(eTs&&d>eTs)return false;return true;});
       for(const l of filtered){
-        const tr=document.createElement("tr");
-        tr.className="clickable"; tr.dataset.id=l.id;
-
-        const mailCell = l.email ? `<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${l.email}</a>` : "";
-        const waDigits = digits(l.phone||"");
-        const waCell = waDigits ? `<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.phone}</a>` : (l.phone||"");
-
-        tr.innerHTML=`<td>${l.name||""}</td>
-                      <td>${mailCell}</td>
-                      <td>${waCell}</td>
-                      <td>${l.owner||""}</td>
-                      <td>${l.stage||""}</td>
-                      <td>${l.source||""}</td>
-                      <td>${l.date||""}</td>
-                      <td><span class="qual-badge ${qualClass(l.qualif)}">${qualName(l.qualif)||""}</span></td>
-                      <td>${new Date(l.updatedAt).toLocaleString()}</td>`;
-        const td=document.createElement("td"); td.className="actions-cell";
-        const del=document.createElement("button"); del.textContent="Excluir";
-        del.addEventListener("click", (ev)=>{
-          ev.stopPropagation();
-          leads=leads.filter(x=>x.id!==l.id);
-          if(persist()){ setStatus("Lead excluído ✅","ok"); pxTrack('lead_delete'); }
-          renderAll();
-        });
-        td.appendChild(del); tr.appendChild(td);
-        tbody.appendChild(tr);
+        const tr=document.createElement("tr"); tr.className="clickable"; tr.dataset.id=l.id;
+        const mailCell=l.email?`<a class="quick" href="mailto:${encodeURIComponent(l.email)}" onclick="event.stopPropagation()">${l.email}</a>`:"";
+        const waDigits=digits(l.phone||""); const waCell=waDigits?`<a class="quick" href="https://wa.me/${waDigits}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${l.phone}</a>`:(l.phone||"");
+        tr.innerHTML=`<td>${l.name||""}</td><td>${mailCell}</td><td>${waCell}</td><td>${l.owner||""}</td><td>${l.stage||""}</td><td>${l.source||""}</td><td>${l.date||""}</td><td><span class="qual-badge ${qualClass(l.qualif)}">${qualName(l.qualif)||""}</span></td><td>${new Date(l.updatedAt).toLocaleString()}</td>`;
+        const td=document.createElement("td"); td.className="actions-cell"; const del=document.createElement("button"); del.textContent="Excluir";
+        del.addEventListener("click",(ev)=>{ev.stopPropagation();leads=leads.filter(x=>x.id!==l.id);if(setJSON(LSKEY(),leads)){setStatus("Lead excluído ✅","ok");}renderAll();});
+        td.appendChild(del); tr.appendChild(td); tbody.appendChild(tr);
       }
-
       populateOwnerFilter();
     }
+    document.querySelector("#leadsTable tbody").addEventListener("click",(e)=>{if(e.target.closest(".actions-cell"))return;const tr=e.target.closest("tr");if(!tr)return;const lead=leads.find(x=>x.id===tr.dataset.id);if(lead)showLeadDetails(lead);});
+    fOwner.addEventListener("change",renderList); fQualif.addEventListener("change",renderList);
 
-    document.querySelector("#leadsTable tbody").addEventListener("click", (e)=>{
-      if(e.target.closest(".actions-cell")) return;
-      const tr=e.target.closest("tr"); if(!tr) return;
-      const lead=leads.find(x=>x.id===tr.dataset.id);
-      if(lead) showLeadDetails(lead);
-    });
-
-    function populateOwnerFilter(){
-      const selected = fOwner.value;
-      const owners=[...new Set(leads.map(l=>l.owner).filter(Boolean))].sort();
-      const options = ['<option value="">Todos atendentes</option>', ...owners.map(o=>`<option ${o===selected?'selected':''} value="${o}">${o}</option>`)];
-      fOwner.innerHTML = options.join('');
-    }
-    fOwner.addEventListener("change", renderList);
-    fQualif.addEventListener("change", renderList);
-
-    /* ===== KANBAN ===== */
+    // KANBAN
     const STAGES=["novo","qualificado","proposta","vendido","perdido"];
-
-    function openEditForLead(lead){ showLeadDetails(lead); setTimeout(()=>{ document.querySelector('dialog.px-modal #editBtn')?.click(); }, 0); }
-
     function renderKanban(){
       for(const stage of STAGES){
-        const body=document.getElementById("col-"+stage);
-        const count=document.getElementById("count-"+stage);
-        body.innerHTML="";
-        const items=leads.filter(x=>(x.stage||"novo")===stage);
-        count.textContent=items.length;
-
+        const body=document.getElementById("col-"+stage), count=document.getElementById("count-"+stage);
+        body.innerHTML=""; const items=leads.filter(x=>(x.stage||"novo")===stage); count.textContent=items.length;
         for(const l of items){
-          const card=document.createElement("div");
-          card.className="kcard";
-          card.draggable=true;
-          card.dataset.id=l.id;
-          card.tabIndex=0;
-
-          const edit=document.createElement("button");
-          edit.type="button"; edit.className="edit-btn"; edit.title="Editar lead"; edit.innerHTML="✏️";
-          edit.addEventListener("click",(ev)=>{ ev.stopPropagation(); openEditForLead(l); });
-          card.appendChild(edit);
-
-          const nameEl=document.createElement("div"); nameEl.className="name"; nameEl.textContent=l.name||"";
-          const metaEmail=document.createElement("div"); metaEmail.className="meta"; metaEmail.textContent=l.email||"";
-          card.appendChild(nameEl); card.appendChild(metaEmail);
-          if(l.owner){ const m=document.createElement("div"); m.className="meta"; m.textContent="Atendente: "+l.owner; card.appendChild(m); }
-          if(l.qualif){ const qb=document.createElement("span"); qb.className="qual-badge "+qualClass(l.qualif); qb.textContent=qualName(l.qualif); card.appendChild(qb); }
-
-          const wa = digits(l.phone||"");
-          if(wa){
-            const a=document.createElement("a");
-            a.className="wa-icon";
-            a.href=`https://wa.me/${wa}?text=${encodeURIComponent(buildMessage(waTemplate, l))}`;
-            a.target="_blank"; a.rel="noopener"; a.title="Abrir WhatsApp";
-            a.addEventListener("click", ev=>ev.stopPropagation());
-            a.innerHTML = `<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 0a16 16 0 1 0 0 32 16 16 0 0 0 0-32z" fill="#25D366"/><path d="M22.7 18.6c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.1.2-1.9 0-.4-.1-1-.3-2-.7-3.6-1.6-5.9-5.2-6.1-5.5-.2-.3-1.5-2-1.5-3.8 0-1.9 1-2.7 1.3-3 .3-.3.7-.4 1-.4h.7c.2 0 .6 0 .9.7.3.7 1.1 2.6 1.2 2.8.1.2.1.4 0 .6-.1.3-.2.4-.4.7-.2.2-.4.5-.5.7-.2.2-.4.5-.2.8.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.9 1.8.3.1.6.1.8-.1.2-.2 1-.9 1.2-1.2.3-.3.5-.2.8-.1.3.1 1.9.9 2.2 1.1.3.2.5.3.6.5.1.2.1.6 0 .9z" fill="#fff"/></svg>`;
-            card.appendChild(a);
-          }
-
-          const handle=document.createElement("div");
-          handle.className="drag-handle"; handle.title="Arrastar para outra coluna"; handle.textContent="⠿";
-          card.appendChild(handle);
-
-          card.addEventListener("click", ()=> showLeadDetails(l));
-          card.addEventListener("dblclick", (ev)=>{ ev.preventDefault(); openEditForLead(l); });
-          card.addEventListener("keydown", (ev)=>{
-            if(ev.key==="Enter") showLeadDetails(l);
-            if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase()==="e"){ ev.preventDefault(); openEditForLead(l); }
-          });
-
-          card.addEventListener("dragstart", e=>{
-            if(e.dataTransfer){ e.dataTransfer.effectAllowed="move"; try{ e.dataTransfer.setData("text/plain", card.dataset.id); }catch(_){} }
-            card.classList.add("dragging");
-          });
-          card.addEventListener("dragend", ()=> card.classList.remove("dragging"));
-
+          const card=document.createElement("div"); card.className="kcard"; card.draggable=true; card.dataset.id=l.id; card.tabIndex=0;
+          const edit=document.createElement("button"); edit.type="button"; edit.className="edit-btn"; edit.title="Editar"; edit.innerHTML="✏️"; edit.addEventListener("click",(ev)=>{ev.stopPropagation();showLeadDetails(l);setTimeout(()=>{document.querySelector('dialog.px-modal #editBtn')?.click();},0);}); card.appendChild(edit);
+          const nameEl=document.createElement("div"); nameEl.className="name"; nameEl.textContent=l.name||""; const meta=document.createElement("div"); meta.className="meta"; meta.textContent=(l.email||""); card.appendChild(nameEl); card.appendChild(meta);
+          if(l.owner){const m=document.createElement("div");m.className="meta";m.textContent="Atendente: "+l.owner;card.appendChild(m);}
+          if(l.qualif){const qb=document.createElement("span");qb.className="qual-badge "+qualClass(l.qualif);qb.textContent=qualName(l.qualif);card.appendChild(qb);}
+          const handle=document.createElement("div"); handle.className="drag-handle"; handle.title="Arrastar para outra coluna"; handle.textContent="⠿"; card.appendChild(handle);
+          card.addEventListener("dragstart",e=>{if(e.dataTransfer){e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",card.dataset.id);}catch(_){}}card.classList.add("dragging");});
+          card.addEventListener("dragend",()=>card.classList.remove("dragging"));
+          card.addEventListener("click",()=>showLeadDetails(l));
           body.appendChild(card);
         }
       }
-      bindDnD();
-    }
-
-    function bindDnD(){
       document.querySelectorAll(".kbody").forEach(col=>{
-        col.addEventListener("dragover", e=>{ e.preventDefault(); if(e.dataTransfer) e.dataTransfer.dropEffect="move"; col.classList.add("kdrop"); });
-        col.addEventListener("dragleave", ()=>col.classList.remove("kdrop"));
-        col.addEventListener("drop", e=>{
-          e.preventDefault(); col.classList.remove("kdrop");
-          const dragged = document.querySelector(".kcard.dragging");
-          const id = (e.dataTransfer && e.dataTransfer.getData("text/plain")) || dragged?.dataset.id;
-          if (!id) return;
-          const l = leads.find(x=>x.id===id);
-          if(l){
-            const toStage = col.closest(".kcol")?.dataset.stage || col.parentElement.dataset.stage;
-            l.stage=toStage; l.updatedAt=Date.now();
-            if(persist()){ setStatus("Lead movido ✅","ok"); pxTrack('kanban_move', { to: toStage }); }
-            renderAll();
-          }
-        });
+        col.addEventListener("dragover",e=>{e.preventDefault(); if(e.dataTransfer) e.dataTransfer.dropEffect="move"; col.classList.add("kdrop");});
+        col.addEventListener("dragleave",()=>col.classList.remove("kdrop"));
+        col.addEventListener("drop",e=>{e.preventDefault(); col.classList.remove("kdrop"); const dragged=document.querySelector(".kcard.dragging"); const id=(e.dataTransfer&&e.dataTransfer.getData("text/plain"))||dragged?.dataset.id; if(!id)return; const l=leads.find(x=>x.id===id); if(l){const toStage=col.closest(".kcol")?.dataset.stage||col.parentElement.dataset.stage; l.stage=toStage; l.updatedAt=Date.now(); if(setJSON(LSKEY(),leads))setStatus("Lead movido ✅","ok"); renderAll();}});
       });
     }
 
-    /* ===== Dashboard ===== */
-    function computeStats(){
-      const total = leads.length;
-      const vendidos = leads.filter(l=>l.stage==="vendido").length;
-      const conv = total? Math.round((vendidos/total)*100) : 0;
-
-      const byStage = {novo:0, qualificado:0, proposta:0, vendido:0, perdido:0};
-      leads.forEach(l=>{ byStage[l.stage||"novo"] = (byStage[l.stage||"novo"]||0)+1; });
-
-      const byQualif = {quente:0, morno:0, frio:0, vazio:0};
-      leads.forEach(l=>{ if(!l.qualif) byQualif.vazio++; else byQualif[l.qualif] = (byQualif[l.qualif]||0)+1; });
-
-      const byOwner = {};
-      leads.forEach(l=>{
-        const o = l.owner||"(sem atendente)";
-        if(!byOwner[o]) byOwner[o] = {total:0, vendido:0};
-        byOwner[o].total++; if(l.stage==="vendido") byOwner[o].vendido++;
-      });
-
-      return {total, vendidos, conv, byStage, byQualif, byOwner};
-    }
-    const pct=(p,t)=> t? Math.round((p/t)*100) : 0;
-    function renderDashboard(){
-      const {total, vendidos, conv, byStage, byQualif, byOwner} = computeStats();
-      document.getElementById("kpiTotal").textContent = total;
-      document.getElementById("kpiVendido").textContent = vendidos;
-      document.getElementById("kpiConv").textContent = conv + "%";
-
-      const ds = document.getElementById("dashStages"); ds.innerHTML="";
-      [["Novo","novo"],["Qualificado","qualificado"],["Proposta","proposta"],["Vendido","vendido"],["Perdido","perdido"]].forEach(([label,key])=>{
-        const v = byStage[key]||0;
-        const row = document.createElement("div"); row.className="row";
-        row.innerHTML = `<div>${label}</div><div class="bar"><div style="width:${pct(v,total)}%"></div></div><div style="text-align:right">${v}</div>`;
-        ds.appendChild(row);
-      });
-
-      const dq = document.getElementById("dashQualif"); dq.innerHTML="";
-      [["Led Quente","quente"],["Led Morno","morno"],["Led Frio","frio"],["(Sem)","vazio"]].forEach(([label,key])=>{
-        const v = byQualif[key]||0;
-        const row = document.createElement("div"); row.className="row";
-        row.innerHTML = `<div>${label}</div><div class="bar"><div style="width:${pct(v,total)}%"></div></div><div style="text-align:right">${v}</div>`;
-        dq.appendChild(row);
-      });
-
-      const tb = document.querySelector("#dashOwners tbody"); tb.innerHTML="";
-      Object.entries(byOwner).sort((a,b)=>b[1].total-a[1].total).forEach(([owner,vals])=>{
-        const tr=document.createElement("tr");
-        tr.innerHTML = `<td>${esc(owner)}</td><td>${vals.total}</td><td>${vals.vendido}</td>`;
-        tb.appendChild(tr);
-      });
+    // Dashboard
+    const pct=(p,t)=>t?Math.round((p/t)*100):0;
+    function computeStats(){const total=leads.length;const vendidos=leads.filter(l=>l.stage==="vendido").length;const byStage={novo:0,qualificado:0,proposta:0,vendido:0,perdido:0};leads.forEach(l=>{byStage[l.stage||"novo]=(byStage[l.stage||"novo"]||0)+1;});const byQualif={quente:0,morno:0,frio:0,vazio:0};leads.forEach(l=>{if(!l.qualif)byQualif.vazio++;else byQualif[l.qualif]=(byQualif[l.qualif]||0)+1;});const byOwner={};leads.forEach(l=>{const o=l.owner||"(sem atendente)";if(!byOwner[o])byOwner[o]={total:0,vendido:0};byOwner[o].total++;if(l.stage==="vendido")byOwner[o].vendido++;});return {total,vendidos,conv: total?Math.round((vendidos/total)*100):0,byStage,byQualif,byOwner};}
+    function renderDashboard(){const {total,vendidos,conv,byStage,byQualif,byOwner}=computeStats(); document.getElementById("kpiTotal").textContent=total; document.getElementById("kpiVendido").textContent=vendidos; document.getElementById("kpiConv").textContent=conv+"%";
+      const ds=document.getElementById("dashStages"); ds.innerHTML=""; [["Novo","novo"],["Qualificado","qualificado"],["Proposta","proposta"],["Vendido","vendido"],["Perdido","perdido"]].forEach(([label,key])=>{const v=byStage[key]||0;const row=document.createElement("div");row.className="row";row.innerHTML=`<div>${label}</div><div class="bar"><div style="width:${pct(v,total)}%"></div></div><div style="text-align:right">${v}</div>`;ds.appendChild(row);});
+      const dq=document.getElementById("dashQualif"); dq.innerHTML=""; [["Led Quente","quente"],["Led Morno","morno"],["Led Frio","frio"],["(Sem)","vazio"]].forEach(([label,key])=>{const v=byQualif[key]||0;const row=document.createElement("div");row.className="row";row.innerHTML=`<div>${label}</div><div class="bar"><div style="width:${pct(v,total)}%"></div></div><div style="text-align:right">${v}</div>`;dq.appendChild(row);});
+      const tb=document.querySelector("#dashOwners tbody"); tb.innerHTML=""; Object.entries(byOwner).sort((a,b)=>b[1].total-a[1].total).forEach(([owner,vals])=>{const tr=document.createElement("tr");tr.innerHTML=`<td>${esc(owner)}</td><td>${vals.total}</td><td>${vals.vendido}</td>`;tb.appendChild(tr);});
     }
 
-    /* ===== Export CSV ===== */
-    function toCsvRow(arr){return arr.map(v=>('"'+String(v??"").replace(/"/g,'""')+'"')).join(",");}
-    function downloadCsv(filename, csv){
-      const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
-      URL.revokeObjectURL(url);
-    }
-    document.getElementById("exportCsv").addEventListener("click", ()=>{
-      const headers=["id","nome","email","whatsapp","atendente","estagio","origem","data","qualificacao","notas","criado_em","atualizado_em"];
-      const rows=[headers];
-      const ownerFilter=fOwner?.value||"";
-      const qualFilter=fQualif?.value||"";
-      const q=(search?.value||"").toLowerCase();
-      const sTs=parseDateTs(fStart?.value); const eTs=parseDateTs(fEnd?.value,true);
+    // Export CSV
+    function csvRow(arr){return arr.map(v=>('"'+String(v??"").replace(/"/g,'""')+'"')).join(",");}
+    function downloadCsv(name,csv){const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);}
+    document.getElementById("exportCsv").addEventListener("click",()=>{const headers=["id","nome","email","whatsapp","atendente","estagio","origem","data","qualificacao","notas","criado_em","atualizado_em"];const rows=[headers];const owner=fOwner?.value||"";const qual=fQualif?.value||"";const q=(search?.value||"").toLowerCase();const sTs=parseDateTs(fStart?.value);const eTs=parseDateTs(fEnd?.value,true);const filtered=leads.filter(l=>{const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();const d=l.date?parseDateTs(l.date):l.updatedAt;if(q&&!txt.includes(q))return false;if(owner&&(l.owner||"")!==owner)return false;if(qual&&(l.qualif||"")!==qual)return false;if(sTs&&d<sTs)return false;if(eTs&&d>eTs)return false;return true;}); for(const l of filtered){rows.push([l.id,l.name||"",l.email||"",l.phone||"",l.owner||"",l.stage||"",l.source||"",l.date||"",qualName(l.qualif)||"",l.notes||"",new Date(l.createdAt).toISOString(),new Date(l.updatedAt).toISOString()]);} downloadCsv(`leads_pixelup_${new Date().toISOString().slice(0,10)}.csv`, rows.map(csvRow).join("\n"));});
 
-      const filtered=leads.filter(l=>{
-        const txt=((l.name||"")+" "+(l.email||"")+" "+(l.phone||"")+" "+(l.owner||"")+" "+(l.source||"")+" "+(l.notes||"")+" "+qualName(l.qualif)).toLowerCase();
-        const d=l.date?parseDateTs(l.date):l.updatedAt;
-        if(q && !txt.includes(q)) return false;
-        if(ownerFilter && (l.owner||"")!==ownerFilter) return false;
-        if(qualFilter && (l.qualif||"")!==qualFilter) return false;
-        if(sTs && d<sTs) return false;
-        if(eTs && d>eTs) return false;
-        return true;
-      });
-
-      for(const l of filtered){
-        rows.push([l.id,l.name||"",l.email||"",l.phone||"",l.owner||"",
-          l.stage||"",l.source||"",l.date||"",qualName(l.qualif)||"",
-          l.notes||"",new Date(l.createdAt).toISOString(),new Date(l.updatedAt).toISOString()]);
-      }
-      const csv = rows.map(toCsvRow).join("\n");
-      downloadCsv(`leads_pixelup_${new Date().toISOString().slice(0,10)}.csv`, csv);
-    });
-
-    /* ===== Form ===== */
-    const uid = () => (Date.now().toString(36) + Math.random().toString(36).slice(2,6)).toUpperCase();
-    const formEl=document.getElementById("leadForm");
-    if(formEl){
-      formEl.addEventListener("submit", e=>{
-        e.preventDefault();
-        const lead={id:uid(),
-          name:document.getElementById("name").value.trim(),
-          email:document.getElementById("email").value.trim(),
-          phone:document.getElementById("phone").value.trim(),
-          stage:document.getElementById("stage").value,
-          owner:document.getElementById("owner").value.trim(),
-          source:document.getElementById("source").value.trim(),
-          date:document.getElementById("date").value,
-          qualif:document.getElementById("qualif").value,
-          notes:document.getElementById("notes").value.trim(),
-          createdAt:Date.now(),updatedAt:Date.now()};
-        if(!lead.name){alert("Informe o nome");return;}
-        leads.push(lead);
-        if(persist()){
-          setStatus(`Lead salvo ✅ (armazenamento: ${storeType})`,"ok");
-          pxTrack('lead_save', { stage: lead.stage || 'novo' });
-          formEl.reset();
-          renderAll();
-        }
-      });
-    }
-
-    /* ===== Template WhatsApp ===== */
-    document.getElementById("btnTemplate").addEventListener("click", ()=>{
-      const novo = prompt("Edite o texto padrão do WhatsApp.\nPlaceholders: {{nome}}, {{email}}, {{whatsapp}}, {{atendente}}, {{origem}}, {{estagio}}, {{data}}, {{qualificacao}}", waTemplate);
-      if(novo!=null){
-        waTemplate=novo;
-        try{ store.setItem(__getTplKey(), waTemplate); setStatus("Modelo de WhatsApp salvo ✅","ok"); }
-        catch(e){ setStatus("Erro ao salvar modelo","err"); }
-      }
-    });
-
-    /* ===== Abas ===== */
-    tabDashboard.onclick=()=>{ tabDashboard.classList.add("active"); tabList.classList.remove("active"); tabKanban.classList.remove("active");
-      dashboard.style.display="block"; tableWrap.style.display="none"; kanbanEl.classList.remove("visible"); kanbanEl.style.display="none"; renderDashboard(); };
-    tabList.onclick=()=>{ tabList.classList.add("active"); tabDashboard.classList.remove("active"); tabKanban.classList.remove("active");
-      tableWrap.style.display="block"; dashboard.style.display="none"; kanbanEl.classList.remove("visible"); kanbanEl.style.display="none"; };
-    tabKanban.onclick=()=>{ tabKanban.classList.add("active"); tabList.classList.remove("active"); tabDashboard.classList.remove("active");
-      kanbanEl.style.display="grid"; kanbanEl.classList.add("visible"); dashboard.style.display="none"; tableWrap.style.display="none"; renderKanban(); };
-
-    [search,fOwner,fQualif,fStart,fEnd].forEach(el=>el&&el.addEventListener("input",()=>{renderList(); renderDashboard();}));
-
-    function renderAll(){renderList();renderKanban();renderDashboard();}
-    renderAll();
-
-    // recarregar dados ao logar/sair
-    window.__reloadUserData = function(){
-      try{ waTemplate = store.getItem(__getTplKey()) || waTemplate; leads = safeGetJSON(__getLSKey(), []); renderAll(); }catch(_){}
-    };
-  });
-  </script>
-
-  <!-- ===== SCRIPT DE AUTENTICAÇÃO (Firebase via CDN) ===== -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAnalytics }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-    import {
-      getAuth, onAuthStateChanged,
-      signInWithEmailAndPassword,
-      createUserWithEmailAndPassword,
-      sendPasswordResetEmail, signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-    // SUA CONFIG
-    const firebaseConfig = {
-      apiKey: "AIzaSyDbH9A6GsgBwuROixn3auVSsYFVHc8wNok",
-      authDomain: "crmpixelup.firebaseapp.com",
-      projectId: "crmpixelup",
-      storageBucket: "crmpixelup.firebasestorage.app",
-      messagingSenderId: "596795771762",
-      appId: "1:596795771762:web:395dbaa4f463c4406c2beb",
-      measurementId: "G-1NVT271HN8"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    try { getAnalytics(app); } catch(_) {}
-
-    const auth = getAuth(app);
-
-    // UI
-    const appEl   = document.getElementById('app');
-    const authCard= document.getElementById('authCard');
-    const userBar = document.getElementById('userBar');
-    const ubEmail = document.getElementById('ubEmail');
-    const authForm= document.getElementById('authForm');
-    const authEmail= document.getElementById('authEmail');
-    const authPass = document.getElementById('authPass');
-    const authMsg  = document.getElementById('authMsg');
-    const btnRegister= document.getElementById('btnRegister');
-    const btnForgot  = document.getElementById('btnForgot');
-    const btnLogout  = document.getElementById('btnLogout');
-
-    const show = (el,v)=> el && (el.style.display = v ? '' : 'none');
-    const msg  = (t,cls)=>{ if(authMsg){ authMsg.textContent=t||''; authMsg.className='status '+(cls||''); } };
-
-    // traduz erros + inclui configuration-not-found
-    function traduzErroAuth(err){
-      const code = err?.code || '';
-      switch(code){
-        case 'auth/configuration-not-found': return 'Authentication não iniciado no projeto. No Firebase Console, clique em "Começar" em Authentication e ative E-mail/Senha.';
-        case 'auth/operation-not-allowed':   return 'Método E-mail/Senha não habilitado no Firebase.';
-        case 'auth/unauthorized-domain':     return 'Domínio não autorizado nas configurações do Authentication.';
-        case 'auth/weak-password':           return 'A senha precisa ter pelo menos 6 caracteres.';
-        case 'auth/invalid-email':           return 'E-mail inválido.';
-        case 'auth/email-already-in-use':    return 'Este e-mail já está cadastrado.';
-        case 'auth/network-request-failed':  return 'Falha de rede (rode via http/https e verifique conexão).';
-        default: return (err?.message || 'Erro ao autenticar.');
-      }
-    }
-
-    authForm?.addEventListener('submit', async (e)=>{
-      e.preventDefault(); msg('Entrando...', 'ok');
-      try{ await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPass.value); msg('',''); }
-      catch(err){ console.error(err); msg('Falha no login: ' + traduzErroAuth(err), 'err'); }
-    });
-
-    btnRegister?.addEventListener('click', async ()=>{
-      if(authPass.value.length < 6){ msg('A senha precisa ter pelo menos 6 caracteres.', 'warn'); return; }
-      msg('Criando conta...', 'ok');
-      try{ await createUserWithEmailAndPassword(auth, authEmail.value.trim(), authPass.value); msg('Conta criada! Você já está logado.', 'ok'); }
-      catch(err){ console.error(err); msg('Erro ao criar conta: ' + traduzErroAuth(err), 'err'); }
-    });
-
-    btnForgot?.addEventListener('click', async ()=>{
-      if(!authEmail.value){ msg('Digite o e-mail acima para receber o link.', 'warn'); return; }
-      try{ await sendPasswordResetEmail(auth, authEmail.value.trim()); msg('Enviamos um link de redefinição para o seu e-mail.', 'ok'); }
-      catch(err){ console.error(err); msg('Erro ao enviar e-mail: ' + traduzErroAuth(err), 'err'); }
-    });
-
-    btnLogout?.addEventListener('click', ()=> signOut(auth));
-
-    // chaves por usuário (para o CRM)
-    window.AUTH = { user: null };
-    window.getLSKey  = () => "pixelup_crm_leads_v1_" + (window.AUTH?.user?.uid || "guest");
-    window.getTplKey = () => "pixelup_crm_wa_template_v1_" + (window.AUTH?.user?.uid || "guest");
-
-    onAuthStateChanged(auth, (user)=>{
-      window.AUTH.user = user || null;
-      show(appEl, !!user);
-      show(userBar, !!user);
-      show(authCard, !user);
-      if (user) ubEmail.textContent = user.email || '';
-      try{ if(window.__reloadUserData) window.__reloadUserData(); }catch(_){}
-    });
-
-    // até saber o estado, mostra login
-    show(authCard, true);
-    show(appEl, false);
-  </script>
-</body>
-</html>
+    // Form
+    const uid=()=> (Date.now().toString(36)+Math.random().toString(36).slice(2,6)).toUpperCase();
+    form.addEventListener("submit",(e)=>{e.preventDefault();const lead={id:uid(),name:document.getElementById("name").value.trim(),email:document.getElementById("email").value.trim(),phone:document.getElementById("phone").value.trim(),stage:document.getElementById("stage").value,owner:document.getElementById("owner").value.trim(),source:document.getElementById("source").value.trim(),date:document.getElementById("date").value,qualif:document.getElementById("qualif").value,notes:document.getElementById("notes").value.trim(),createdAt:Date.now(),updatedAt:Date.now()}; if(!lead.name){alert("Informe o nome");return;} leads.push(lead); if(setJSON(LSKEY(),leads)){setStatus
