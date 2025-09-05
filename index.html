@@ -482,3 +482,122 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
+<script type="module">
+  // Firebase via CDN
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+  import {
+    getAuth, onAuthStateChanged,
+    signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
+    query, where, onSnapshot, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // === Cole aqui o SEU config (o que você enviou) ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyCjuQZP80sd4FtX83Zp5YgDmySpn7s6GZw",
+    authDomain: "pixelup-crm.firebaseapp.com",
+    projectId: "pixelup-crm",
+    storageBucket: "pixelup-crm.firebasestorage.app",
+    messagingSenderId: "286127901698",
+    appId: "1:286127901698:web:f4dd954937fad94757ab1b",
+    measurementId: "G-MBV63RYPN0"
+  };
+
+  // Inicializa Firebase
+  const app = initializeApp(firebaseConfig);
+
+  // Analytics é opcional; envolve permissões/cookies e só roda em https/localhost
+  let analytics;
+  try { analytics = getAnalytics(app); } catch (e) {
+    console.warn("Analytics indisponível neste ambiente:", e?.message || e);
+  }
+
+  // Serviços
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  // ====== EXEMPLOS DE USO (vincule aos seus botões/inputs) ======
+
+  // Login/Registro/Sair
+  async function registerWithEmail(email, password) {
+    await createUserWithEmailAndPassword(auth, email, password);
+  }
+  async function loginWithEmail(email, password) {
+    await signInWithEmailAndPassword(auth, email, password);
+  }
+  async function logout() {
+    await signOut(auth);
+  }
+
+  // Salvar contato (criar/atualizar)
+  async function saveContact({ id = null, name, phone, note }) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Faça login para salvar contatos.");
+
+    if (id) {
+      await updateDoc(doc(db, "contacts", id), {
+        name, phone, note, updatedAt: serverTimestamp()
+      });
+    } else {
+      await addDoc(collection(db, "contacts"), {
+        name, phone, note,
+        uid: user.uid,
+        createdAt: serverTimestamp()
+      });
+    }
+  }
+
+  // Excluir contato
+  async function deleteContact(id) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Faça login para excluir contatos.");
+    await deleteDoc(doc(db, "contacts", id));
+  }
+
+  // Ouvir contatos do usuário logado em tempo real
+  let unsubscribeContacts = null;
+  function listenMyContacts(renderFn) {
+    if (!auth.currentUser) return;
+    const q = query(
+      collection(db, "contacts"),
+      where("uid", "==", auth.currentUser.uid)
+    );
+    if (unsubscribeContacts) unsubscribeContacts();
+    unsubscribeContacts = onSnapshot(q, (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderFn(items);
+    });
+  }
+
+  // Estado de autenticação (ex.: montar/desmontar UI)
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // Ex.: mostrar área logada, esconder tela de login
+      // e começar a ouvir contatos
+      listenMyContacts((contacts) => {
+        // TODO: renderize sua lista na UI
+        console.log("Meus contatos:", contacts);
+      });
+    } else {
+      // Ex.: mostrar tela de login, limpar lista e parar listener
+      if (unsubscribeContacts) { unsubscribeContacts(); unsubscribeContacts = null; }
+      console.log("Deslogado");
+    }
+  });
+
+  // ====== EXEMPLOS DE VINCULAÇÃO (se você tiver inputs/btns no HTML) ======
+  // document.getElementById("btnLogin")?.addEventListener("click", () => {
+  //   const email = document.getElementById("loginEmail").value;
+  //   const pass  = document.getElementById("loginPass").value;
+  //   loginWithEmail(email, pass).catch(alert);
+  // });
+  // document.getElementById("btnSalvarContato")?.addEventListener("click", () => {
+  //   const name  = document.getElementById("cName").value;
+  //   const phone = document.getElementById("cPhone").value;
+  //   const note  = document.getElementById("cNote").value;
+  //   saveContact({ name, phone, note }).catch(alert);
+  // });
+</script>
