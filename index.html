@@ -461,3 +461,24 @@
     // Form
     const uid=()=> (Date.now().toString(36)+Math.random().toString(36).slice(2,6)).toUpperCase();
     form.addEventListener("submit",(e)=>{e.preventDefault();const lead={id:uid(),name:document.getElementById("name").value.trim(),email:document.getElementById("email").value.trim(),phone:document.getElementById("phone").value.trim(),stage:document.getElementById("stage").value,owner:document.getElementById("owner").value.trim(),source:document.getElementById("source").value.trim(),date:document.getElementById("date").value,qualif:document.getElementById("qualif").value,notes:document.getElementById("notes").value.trim(),createdAt:Date.now(),updatedAt:Date.now()}; if(!lead.name){alert("Informe o nome");return;} leads.push(lead); if(setJSON(LSKEY(),leads)){setStatus
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCjuQZP80sd4FtX83Zp5YgDmySpn7s6GZw",
+  authDomain: "pixelup-crm.firebaseapp.com",
+  projectId: "pixelup-crm",
+  storageBucket: "pixelup-crm.firebasestorage.app",
+  messagingSenderId: "286127901698",
+  appId: "1:286127901698:web:f4dd954937fad94757ab1b",
+  measurementId: "G-MBV63RYPN0"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
