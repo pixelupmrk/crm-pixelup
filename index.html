@@ -601,3 +601,147 @@ const analytics = getAnalytics(app);
   //   saveContact({ name, phone, note }).catch(alert);
   // });
 </script>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CRM PixelUp — Lista + Kanban + Login</title>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(rgba(8,12,18,.82), rgba(8,12,18,.82)), url('pixelup-bg.jpg') center/cover fixed no-repeat;
+      color: #eaf6ff;
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      background: rgba(11,21,32,.75);
+      border-bottom: 1px solid #102437;
+    }
+    /* ...demais estilos (cards, inputs, botões, Kanban etc)... */
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <h1>CRM PixelUp</h1>
+    <div id="user-email"></div>
+  </div>
+
+  <main>
+    <section id="login-section">
+      <h2>Login</h2>
+      <input id="email" type="email" placeholder="Email" />
+      <input id="password" type="password" placeholder="Senha" />
+      <button onclick="login()">Entrar</button>
+      <button onclick="signup()">Criar conta</button>
+    </section>
+
+    <section id="app-section" style="display:none;">
+      <h2>Seus Contatos</h2>
+      <input id="name" placeholder="Nome do contato" />
+      <input id="phone" placeholder="Telefone" />
+      <button onclick="saveContact()">Salvar Contato</button>
+      <ul id="contacts"></ul>
+    </section>
+  </main>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCjuQZP80sd4FtX83Zp5YgDmySpn7s6GZw",
+      authDomain: "pixelup-crm.firebaseapp.com",
+      projectId: "pixelup-crm",
+      storageBucket: "pixelup-crm.appspot.com",
+      messagingSenderId: "286127901698",
+      appId: "1:286127901698:web:f4dd954937fad94757ab1b",
+      measurementId: "G-MBV63RYPN0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    function login() {
+      const email = document.getElementById("email").value;
+      const pass = document.getElementById("password").value;
+      signInWithEmailAndPassword(auth, email, pass)
+        .then(() => alert("Login realizado com sucesso!"))
+        .catch(err => alert("Erro no login: " + err.message));
+    }
+
+    function signup() {
+      const email = document.getElementById("email").value;
+      const pass = document.getElementById("password").value;
+      createUserWithEmailAndPassword(auth, email, pass)
+        .then(() => alert("Conta criada com sucesso!"))
+        .catch(err => alert("Erro ao criar conta: " + err.message));
+    }
+
+    function saveContact() {
+      const name = document.getElementById("name").value;
+      const phone = document.getElementById("phone").value;
+
+      const uid = auth.currentUser?.uid || "anon";
+
+      if (!uid || uid === "anon") {
+        localStorage.setItem("my_contacts", JSON.stringify([{ name, phone }]));
+        alert("Contato salvo localmente (não autenticado).");
+        return;
+      }
+
+      addDoc(collection(db, "contacts"), {
+        uid,
+        name,
+        phone,
+        createdAt: new Date()
+      }).then(() => {
+        alert("Contato salvo no Firestore!");
+        document.getElementById("name").value = "";
+        document.getElementById("phone").value = "";
+      }).catch(err => {
+        alert("Erro ao salvar: " + err.message);
+      });
+    }
+
+    function listenMyContacts(uid) {
+      const q = query(collection(db, "contacts"), where("uid", "==", uid));
+      onSnapshot(q, (snapshot) => {
+        const list = document.getElementById("contacts");
+        list.innerHTML = "";
+        snapshot.forEach(doc => {
+          const li = document.createElement("li");
+          li.textContent = `${doc.data().name} — ${doc.data().phone}`;
+          list.appendChild(li);
+        });
+      });
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById("login-section").style.display = "none";
+        document.getElementById("app-section").style.display = "block";
+        document.getElementById("user-email").innerText = user.email;
+        listenMyContacts(user.uid);
+      } else {
+        document.getElementById("login-section").style.display = "block";
+        document.getElementById("app-section").style.display = "none";
+        document.getElementById("user-email").innerText = "";
+      }
+    });
+  </script>
+</body>
+</html>
